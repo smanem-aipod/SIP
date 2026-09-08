@@ -1,0 +1,403 @@
+table:
+  logical_name: bp
+
+  raw_target:
+    layer: raw
+    object: bp
+
+  canonical_target:
+    layer: canonical
+    object: bp
+
+  canonical_dependencies: []
+
+
+# =========================================================
+# EXCEL → RAW.BP
+# =========================================================
+
+source_to_raw:
+  mappings:
+
+    reporting_line:
+      aliases:
+        - Reporting line
+        - Reporting_Line
+        - Reporting Line
+      required: false
+
+    sales_district_id:
+      aliases:
+        - SalesDistrict
+        - Sales District
+        - Sales District ID
+      required: false
+
+    sales_district_description:
+      aliases:
+        - Sales District Desc
+        - Sales District Description
+        - District Desc
+      required: false
+
+    sales_office_id:
+      aliases:
+        - SalesOffice
+        - Sales Office
+        - Sales Office ID
+      required: false
+
+    dm_name:
+      aliases:
+        - DM Name
+        - DM_NAME
+      required: false
+
+    sales_area_group_id:
+      aliases:
+        - SalesGroup
+        - Sales Group
+        - "Sales Area/ Group ID"
+      required: false
+
+    am_name:
+      aliases:
+        - AM Name
+        - AM_NAME
+      required: false
+
+    seller_id:
+      aliases:
+        - "Seller #"
+        - Seller_ID
+        - Seller
+        - Seller ID
+      required: false
+
+    employee_id_only_for_shared:
+      aliases:
+        - "Emp #\n(only for shared)"
+        - "Emp # (only for shared)"
+        - Employee ID only for Shared
+        - Employee ID Only for Shared
+        - Employee number only for Shared
+        - Employee number
+      required: true
+
+    currency_code:
+      aliases:
+        - CurrencyCode
+        - Currency Code
+        - Currency code
+      required: false
+
+    seller_desc:
+      aliases:
+        - SellerDesc
+        - Seller Desc
+        - Seller Description
+      required: false
+
+    am_id:
+      aliases:
+        - AM_ID
+        - AM ID
+      required: true
+
+    dm_id:
+      aliases:
+        - DM_ID
+        - DM ID
+      required: true
+
+    cam_id:
+      aliases:
+        - CAM_ID
+        - CAM ID
+      required: true
+
+    bdm_id:
+      aliases:
+        - BDM_ID
+        - BDM ID
+      required: true
+
+    fy26_rev:
+      aliases:
+        - FY26 Rev
+        - FY26 Revenue
+        - FY26_REV
+      required: true
+
+    fy26_gp:
+      aliases:
+        - FY26 GP
+        - FY26_GP
+      required: true
+
+    sales_office_description:
+      aliases:
+        - salesofficedesc
+        - Sales office Description
+        - Sales Office Description
+        - Office Desc
+      required: true
+
+    sales_group_description:
+      aliases:
+        - salesgroupdesc
+        - Sales Group Description
+        - Group Desc
+      required: true
+
+    division_node:
+      aliases:
+        - Division Node
+        - DIVISION_NODE
+        - DivisionNode
+      required: true
+
+    comments:
+      aliases:
+        - Comments, if any
+        - Comment
+      required: false
+
+  exclude_unmapped_columns: true
+
+  generated_values:
+    record_source:
+      runtime_parameter: record_source.bp
+
+
+# =========================================================
+# RAW.BP → CANONICAL.BP
+# =========================================================
+
+raw_to_canonical:
+  direct_mappings:
+    bp_sk: bp_sk
+    reporting_line: reporting_line
+    sales_district_id: sales_district_id
+    sales_district_description: sales_district_description
+    sales_office_id: sales_office_id
+    dm_name: dm_name
+    sales_area_group_id: sales_area_group_id
+    am_name: am_name
+    seller_id: seller_id
+    am_id: am_id
+    dm_id: dm_id
+    cam_id: cam_id
+    bdm_id: bdm_id
+    employee_id_only_for_shared: employee_id_only_for_shared
+    currency_code: currency_code
+    fy26_rev: fy26_rev
+    fy26_gp: fy26_gp
+    sales_office_description: sales_office_description
+    sales_group_description: sales_group_description
+    division_node: division_node
+    record_source: record_source
+    created_at: created_at
+
+
+# =========================================================
+# CLEANING
+# =========================================================
+
+cleaning:
+  trim_strings: true
+  collapse_internal_whitespace: true
+  normalize_empty_strings: true
+
+  null_markers:
+    - ""
+    - "#N/A"
+    - "N/A"
+    - "NA"
+    - "null"
+    - "None"
+    - "-"
+
+  uppercase:
+    - reporting_line
+    - currency_code
+
+
+# =========================================================
+# CANONICAL DATATYPES
+# =========================================================
+
+columns:
+
+  bp_sk:
+    type: integer
+    nullable: false
+
+  reporting_line:
+    type: string
+    nullable: true
+    max_length: 10
+
+  sales_district_id:
+    type: string
+    nullable: true
+    max_length: 10
+
+  sales_district_description:
+    type: string
+    nullable: true
+    max_length: 100
+
+  sales_office_id:
+    type: string
+    nullable: true
+    max_length: 10
+
+  dm_name:
+    type: string
+    nullable: true
+    max_length: 100
+
+  sales_area_group_id:
+    type: string
+    nullable: true
+    max_length: 10
+
+  am_name:
+    type: string
+    nullable: true
+    max_length: 100
+
+  seller_id:
+    type: string
+    nullable: true
+    max_length: 10
+
+  am_id:
+    type: string
+    nullable: true
+    max_length: 100
+
+  dm_id:
+    type: string
+    nullable: true
+    max_length: 100
+
+  cam_id:
+    type: string
+    nullable: true
+    max_length: 100
+
+  bdm_id:
+    type: string
+    nullable: true
+    max_length: 100
+
+  employee_id_only_for_shared:
+    type: string
+    nullable: true
+    max_length: 10
+
+  currency_code:
+    type: currency_code
+    nullable: true
+
+  fy26_rev:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  fy26_gp:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  sales_office_description:
+    type: string
+    nullable: true
+    max_length: 500
+
+  sales_group_description:
+    type: string
+    nullable: true
+    max_length: 500
+
+  division_node:
+    type: string
+    nullable: true
+    max_length: 50
+
+  record_source:
+    type: string
+    nullable: true
+    max_length: 50
+
+  created_at:
+    type: timestamp
+    nullable: true
+
+
+# =========================================================
+# VALIDATION
+# =========================================================
+
+validations:
+
+  required_columns:
+    - bp_sk
+
+  composite_unique:
+    - columns:
+        - employee_id_only_for_shared
+      severity: warning
+
+  regex:
+    currency_code: "^[A-Z]{3}$"
+
+  ranges:
+    fy26_rev:
+      allow_negative: true
+
+    fy26_gp:
+      allow_negative: true
+
+
+# =========================================================
+# DERIVED / REFERENCED COLUMNS
+# =========================================================
+
+derived_columns: {}
+
+lookups: []
+
+
+# =========================================================
+# PUBLISH TO CANONICAL.BP
+# =========================================================
+
+publish:
+  columns:
+    - bp_sk
+    - reporting_line
+    - sales_district_id
+    - sales_district_description
+    - sales_office_id
+    - dm_name
+    - sales_area_group_id
+    - am_name
+    - seller_id
+    - am_id
+    - dm_id
+    - cam_id
+    - bdm_id
+    - employee_id_only_for_shared
+    - currency_code
+    - fy26_rev
+    - fy26_gp
+    - sales_office_description
+    - sales_group_description
+    - division_node
+    - record_source
+    - created_at

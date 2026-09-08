@@ -1,0 +1,23 @@
+logging:
+  level: INFO
+
+  console:
+    enabled: true
+
+  file:
+    enabled: true
+    path: logs/sip_automation.log
+    rotation_size_mb: 10
+    backup_count: 10
+
+  format:
+    json: true
+    include_timestamp: true
+    include_module: true
+    include_run_id: true
+
+  events:
+    log_dataframe_shape: true
+    log_column_names: false
+    log_validation_summary: true
+    log_enrichment_match_rates: true

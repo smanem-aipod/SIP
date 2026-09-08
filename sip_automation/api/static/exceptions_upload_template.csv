@@ -1,0 +1,3 @@
+employee_id,employee_name,category,bp_fy26_rev,bp_fy26_rev_percentage,bp_fy26_rev_direction,bp_fy26_gp,bp_fy26_gp_percentage,bp_fy26_gp_direction,ytd_fy26_rev,ytd_fy26_rev_percentage,ytd_fy26_rev_direction,ytd_fy26_gp,ytd_fy26_gp_percentage,ytd_fy26_gp_direction,months_eligible_override,ytd_actual_revenue_override,ytd_actual_gp_dop_override,bp_sga,ytd_sga
+EMP_100,Jane Doe,Leave Case,20000,,+,,,,,,,,,,,,,,
+EMP_101,John Smith,Product Level targets,,,,5000,25,-,,,,,,,,,,,

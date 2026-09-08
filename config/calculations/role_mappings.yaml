@@ -1,0 +1,448 @@
+# =========================================================
+# ROLE-SPECIFIC SIP CONFIGURATION
+#
+# sip_metrics.yaml contains all formulas.
+#
+# This file contains only:
+# - population selection
+# - role-specific aggregation datasets
+# - role-specific grouping and matching keys
+# - role-specific filters
+# =========================================================
+
+roles:
+
+  # =======================================================
+  # SALES PROFESSIONAL
+  # =======================================================
+
+  sales_professional:
+    name: "Sales Professional"
+    enabled: true
+
+    population:
+      dataset: employee
+
+      filters:
+        job_profile_for_sip:
+          operator: equals
+          value: "Sales Professional"
+
+      key_columns:
+        - employee_id
+
+    parameters: {}
+
+    bindings:
+
+      bp:
+        dataset: bp
+
+        group_by:
+          - employee_id_only_for_shared
+
+        source_keys:
+          - employee_id
+
+        reference_keys:
+          - employee_id_only_for_shared
+
+
+      actuals:
+        dataset: sales
+
+        operation: aggregate_sum
+
+        group_by:
+          - employee_id
+
+        source_keys:
+          - employee_id
+
+        reference_keys:
+          - employee_id
+
+        revenue_column: cc_direct_rev
+        gp_column: cc_direct_gp
+
+        revenue_filters:
+          gp_flag:
+            operator: equals
+            value: "OK"
+
+        gp_filters: {}
+
+
+      shared:
+        operation: aggregate_sum
+        dataset: sales
+
+        group_by:
+          - employee_id
+
+        source_keys:
+          - employee_id
+
+        reference_keys:
+          - employee_id
+
+        revenue_filters:
+          gp_flag:
+            operator: equals
+            value: "OK"
+
+        gp_filters: {}
+
+        placeholder_value: 0
+
+
+  # =======================================================
+  # AREA MANAGER
+  # =======================================================
+
+  area_manager:
+    name: "Area Manager"
+    enabled: true
+
+    population:
+      dataset: employee
+
+      filters:
+        job_profile_for_sip:
+          operator: equals
+          value: "Area Manager"
+
+      key_columns:
+        - employee_id
+
+    parameters: {}
+
+    bindings:
+
+      bp:
+        dataset: bp
+
+        group_by:
+          - sales_group_description
+
+        source_keys:
+          - sales_group_description
+
+        reference_keys:
+          - sales_group_description
+
+
+      actuals:
+        dataset: sales
+
+        operation: aggregate_sum
+
+        group_by:
+          - sales_group_description
+
+        source_keys:
+          - sales_group_description
+
+        reference_keys:
+          - sales_group_description
+
+        revenue_column: ytd_rev
+        gp_column: ytd_gp  
+
+        revenue_filters:
+          gp_flag:
+            operator: equals
+            value: "OK"
+
+        gp_filters: {}
+
+
+      shared:
+        operation: constant
+        dataset: sales
+
+        group_by:
+          - sales_group_description
+
+        source_keys:
+          - sales_group_description
+
+        reference_keys:
+          - sales_group_description
+
+        revenue_filters: {}
+        gp_filters: {}
+
+        placeholder_value: 0
+
+  # =======================================================
+  # DISTRICT MANAGER
+  # =======================================================
+
+  district_manager:
+    name: "District Manager"
+    enabled: true
+
+    population:
+      dataset: employee
+
+      filters:
+        job_profile_for_sip:
+          operator: equals
+          value: "District Manager"
+
+      key_columns:
+        - employee_id
+
+    parameters: {}
+
+    bindings:
+
+      bp:
+        dataset: bp
+
+        group_by:
+          - sales_office_description
+
+        source_keys:
+          - sales_office_description
+
+        reference_keys:
+          - sales_office_description
+
+
+      actuals:
+        dataset: sales
+
+        operation: aggregate_sum
+
+        group_by:
+          - sales_office_description
+
+        source_keys:
+          - sales_office_description
+
+        reference_keys:
+          - sales_office_description
+
+        revenue_column: ytd_rev
+        gp_column: ytd_gp  
+
+        revenue_filters:
+          gp_flag:
+            operator: equals
+            value: "OK"
+
+        gp_filters: {}
+
+
+      shared:
+        operation: constant
+        dataset: sales
+
+        group_by:
+          - sales_office_description
+
+        source_keys:
+          - sales_office_description
+
+        reference_keys:
+          - sales_office_description
+
+        revenue_filters: {}
+        gp_filters: {}
+
+        placeholder_value: 0
+
+  # =======================================================
+  # CAM
+  # =======================================================
+
+  cam:
+    name: "CAM"
+    enabled: true
+
+    population:
+      dataset: employee
+
+      filters:
+        job_profile_for_sip:
+          operator: equals
+          value: "CAM"
+
+      key_columns:
+        - employee_id
+
+    parameters: {}
+
+    bindings:
+
+      # ---------------------------------------------------
+      # BP TARGET
+      #
+      # HR employee_id matches BP cam_id.
+      # All BP targets belonging to the CAM are summed.
+      # ---------------------------------------------------
+
+      bp:
+        dataset: bp
+
+        group_by:
+          - cam_id
+
+        source_keys:
+          - employee_id
+
+        reference_keys:
+          - cam_id
+
+
+      # ---------------------------------------------------
+      # ACTUALS
+      #
+      # BP defines each CAM's target share inside each
+      # division_node.
+      #
+      # Sales actual is aggregated at division_node,
+      # multiplied by that CAM share, and then summed across
+      # every division belonging to the CAM.
+      # ---------------------------------------------------
+
+      actuals:
+        operation: weighted_allocation_sum
+
+        dataset: sales
+
+        group_by:
+          - division_node
+
+        source_keys:
+          - employee_id
+
+        reference_keys:
+          - cam_id
+
+        revenue_column: ytd_rev
+        gp_column: ytd_gp
+
+        revenue_filters:
+          gp_flag_cam:
+            operator: equals
+            value: "OK"
+
+        gp_filters: {}
+
+
+      # ---------------------------------------------------
+      # CAM does not use SP shared-account calculation.
+      # ---------------------------------------------------
+
+      shared:
+        operation: constant
+        dataset: sales
+
+        group_by:
+          - division_node
+
+        source_keys:
+          - employee_id
+
+        reference_keys:
+          - employee_id
+
+        revenue_filters: {}
+        gp_filters: {}
+
+        placeholder_value: 0
+
+  # =======================================================
+  # BDM
+  # =======================================================
+
+  bdm:
+    name: "BDM"
+    enabled: true
+
+    population:
+      dataset: employee
+
+      filters:
+        job_profile_for_sip:
+          operator: equals
+          value: "BDM"
+
+      key_columns:
+        - employee_id
+
+    parameters: {}
+
+    bindings:
+
+      # ---------------------------------------------------
+      # BP
+      #
+      # employee.employee_id = bp.bdm_id
+      # ---------------------------------------------------
+
+      bp:
+        dataset: bp
+
+        group_by:
+          - bdm_id
+
+        source_keys:
+          - employee_id
+
+        reference_keys:
+          - bdm_id
+
+
+      # ---------------------------------------------------
+      # ACTUALS
+      #
+      # canonical.bdm already contains calculated,
+      # filtered and sharing-adjusted revenue / GP.
+      # ---------------------------------------------------
+
+      actuals:
+        dataset: bdm
+
+        operation: aggregate_sum
+
+        group_by:
+          - bdm_id
+
+        source_keys:
+          - employee_id
+
+        reference_keys:
+          - bdm_id
+
+        revenue_column: revenue
+        gp_column: gp
+
+        revenue_filters: {}
+        gp_filters: {}
+
+
+      # ---------------------------------------------------
+      # NO SEPARATE SHARED ACCOUNT METRIC
+      # ---------------------------------------------------
+
+      shared:
+        operation: constant
+        dataset: bdm
+
+        group_by:
+          - bdm_id
+
+        source_keys:
+          - employee_id
+
+        reference_keys:
+          - bdm_id
+
+        revenue_filters: {}
+        gp_filters: {}
+
+        placeholder_value: 0

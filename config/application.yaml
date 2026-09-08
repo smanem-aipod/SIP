@@ -1,0 +1,128 @@
+application:
+  name: SIP Automation
+  environment: local
+  version: 0.1.0
+
+
+pipeline:
+  raw_load_order:
+    - ytd_payments
+    - nacs_guarantee
+    - employee
+    - bp
+    - sales
+    - bdm
+
+  canonical_build_order:
+    - ytd_payments
+    - nacs_guarantee
+    - bp
+    - employee
+    - sales
+    - bdm
+
+  stop_on_validation_error: true
+  preserve_raw_records: true
+
+
+tables:
+  employee:
+    enabled: true
+    provider: excel
+    configuration_file: tables/employee.yaml
+
+  bp:
+    enabled: true
+    provider: excel
+    configuration_file: tables/bp.yaml
+
+  sales:
+    enabled: true
+    provider: excel
+    configuration_file: tables/sales.yaml
+
+  nacs_guarantee:
+    enabled: true
+    provider: excel
+    configuration_file: tables/nacs_guarantee.yaml
+
+  ytd_payments:
+    enabled: true
+    provider: excel
+    configuration_file: tables/ytd_payments.yaml
+
+  bdm:
+    enabled: true
+    provider: excel
+    configuration_file: tables/bdm.yaml
+
+
+database:
+  raw:
+    employee:
+      schema: raw
+      table: employee
+
+    bp:
+      schema: raw
+      table: bp
+
+    sales:
+      schema: raw
+      table: sales
+
+    nacs_guarantee:
+      schema: raw
+      table: nacs_guarantee
+
+    ytd_payments:
+      schema: raw
+      table: ytd_payments
+
+    bdm:
+      schema: raw
+      table: bdm
+
+  canonical:
+    employee:
+      schema: canonical
+      table: employee
+
+    bp:
+      schema: canonical
+      table: bp
+
+    sales:
+      schema: canonical
+      table: sales
+
+    nacs_guarantee:
+      schema: canonical
+      table: nacs_guarantee
+
+    ytd_payments:
+      schema: canonical
+      table: ytd_payments  
+
+    bdm:
+      schema: canonical
+      table: bdm
+
+  reference:
+    fx_rate:
+      schema: core
+      table: fact_fx_rate
+
+    employee_seller:
+      schema: core
+      table: bridge_employee_seller
+
+
+runtime_defaults:
+  record_source:
+    employee: HR_UPLOAD
+    bp: BP_UPLOAD
+    sales: SNOWFLAKE
+    nacs_guarantee: NACS_GUARANTEE_UPLOAD
+    ytd_payments: YTD_PAYMENTS_UPLOAD
+    bdm: BDM_UPLOAD

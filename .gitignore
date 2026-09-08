@@ -1,0 +1,21 @@
+# Environments - each teammate creates their own; never commit real credentials
+.env
+.venv_local/
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Runtime-generated data (rebuilt from uploaded Excel files on every run,
+# or admin-maintained but instance-specific - not source code)
+data/
+logs/
+outputs/
+storage/uploads/
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db

@@ -1,0 +1,43 @@
+[tool.poetry]
+name = "sip-automation"
+version = "0.1.0"
+description = "Sales Incentive Plan preparation and calculation platform"
+authors = ["SIP Team"]
+packages = [{ include = "sip_automation", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pandas = "^2.3"
+sqlalchemy = "^2.0"
+psycopg = { version = "^3.2", extras = ["binary"] }
+pydantic = "^2.11"
+pydantic-settings = "^2.10"
+pyyaml = "^6.0"
+openpyxl = "^3.1"
+pyxlsb = "^1.0"
+python-calamine = "^0.8"
+structlog = "^25.0"
+pyarrow = "^25.0.0"
+python-dotenv = "^1.2.2"
+psycopg2-binary = "^2.9.12"
+fastapi = "^0.140.13"
+uvicorn = "^0.52.0"
+python-multipart = "^0.0.32"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4"
+pytest-cov = "^6.2"
+ruff = "^0.12"
+mypy = "^1.17"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

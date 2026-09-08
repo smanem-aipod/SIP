@@ -1,0 +1,282 @@
+output:
+  name: final_sip_calculations
+  missing_column_policy: add_null
+
+  columns:
+
+    # =====================================================
+    # EMPLOYEE DETAILS
+    # =====================================================
+
+    - source: employee_id
+      header: Employee ID
+
+    - source: preferred_name
+      header: Preferred Name
+
+    - source: job_profile_for_sip
+      header: Position
+
+    - source: sales_district_description
+      header: Sales District Description
+
+    - source: sales_office_description
+      header: Sales Office Description
+
+    - source: sales_group_description
+      header: Sales Group Description
+
+    - source: bu
+      header: BU
+
+    - source: country
+      header: Country
+
+    - source: region
+      header: Region
+
+    - source: annual_salary_payroll_currency
+      header: Annual Salary (Payroll currency)
+
+    - source: payroll_currency
+      header: Payroll Currency
+
+    - source: annual_salary_usd
+      header: Annual Salary (USD)
+
+
+    # =====================================================
+    # SIP 1–7
+    # =====================================================
+
+    - source: YTD Salary (Payroll Currency)
+      header: YTD Salary (Payroll Currency)
+
+    - source: YTD Salary (USD)
+      header: YTD Salary (USD)
+
+    - source: sip_target_pct
+      header: SIP Target %
+
+    - source: sip_eligible_date
+      header: SIP Eligible date
+
+    - source: "# Months Eligible"
+      header: "# Months Eligible"
+
+    - source: SIP Target (PC)
+      header: SIP Target (PC)
+
+    - source: SIP Target (USD)
+      header: SIP Target (USD)
+
+    - source: Max SIP (PC)
+      header: Max SIP (PC)
+
+    - source: Max SIP (USD)
+      header: Max SIP (USD)
+
+
+    # =====================================================
+    # SIP 8–14
+    # =====================================================
+
+    - source: Base Rate Revenue
+      header: Base Rate Revenue
+
+    - source: Surge Rate Revenue
+      header: Surge Rate Revenue
+
+    - source: Spl Surge Rate Revenue
+      header: Spl Surge Rate Revenue
+
+    - source: Base Rate GP/DOP
+      header: Base Rate GP/DOP
+
+    - source: Surge Rate GP/DOP
+      header: Surge Rate GP/DOP
+
+    - source: Spl Surge Rate GP/DOP
+      header: Spl Surge Rate GP/DOP
+
+    - source: Region Currency
+      header: Region Currency
+
+
+    - source: Target Sales Rev Direct    
+      header: Target Sales Rev Direct
+
+    - source: Target Exceptions (Revenue)
+      header: Target Exceptions (Revenue)
+
+    - source: Target GP/DOP DIRECT    
+      header: Target GP/DOP DIRECT
+
+    - source: BP SG&A
+      header: BP SG&A
+
+    - source: Target Exceptions (GP/DOP)
+      header: Target Exceptions (GP/DOP)
+
+    - source: Target in Region Currency (Revenue)
+      header: Final Target in Region Currency (Revenue)
+
+    - source: Target in Region Currency (GP/DOP)
+      header: Final Target in Region Currency (GP/DOP)
+
+    - source: YTD Actual in Regional Currency (Revenue)
+      header: YTD Actual in Regional Currency (Revenue)
+
+    - source: YTD Actual in Regional Currency (GP/DOP)
+      header: YTD Actual in Regional Currency (GP/DOP)
+
+    - source: YTD SG&A
+      header: YTD SG&A
+
+    - source: Shared Accounts in Regional Currency (Revenue)
+      header: Shared Accounts in Regional Currency Revenue
+
+    - source: Shared Accounts in Regional Currency (GP)
+      header: Shared Accounts in Regional Currency GP
+
+
+    # =====================================================
+    # SIP 15–21
+    # =====================================================
+
+    - source: Approved Exceptions in Regional Currency (Revenue)
+      header: Approved Exceptions in Regional Currency Revenue
+
+    - source: Approved Exceptions in Regional Currency (GP)
+      header: Approved Exceptions in Regional Currency GP
+
+    - source: Unallocated Cost
+      header: Unallocated Cost @__%
+
+    - source: Final YTD Actual in Regional Currency (Revenue)
+      header: Final YTD Actual in Regional Currency (Revenue)
+
+    - source: Final YTD Actual in Regional Currency (GP/DOP)
+      header: Final YTD Actual in Regional Currency (GP/DOP)
+
+    - source: "% BP Met Revenue"
+      header: "% BP met Revenue"
+
+    - source: "% BP Met GP"
+      header: "% BP met GP"
+
+
+    # =====================================================
+    # SIP 22–30
+    # =====================================================
+
+    - source: Base Commission Earned Revenue
+      header: Base Commission Earned Revenue
+
+    - source: Base Commission Earned GP
+      header: Base Commission Earned GP
+
+    - source: Total Base Commission Earned
+      header: Total Base Commission Earned
+
+    - source: "% of BP Met for Surge Revenue"
+      header: "% of BP Met for Surge Revenue"
+
+    - source: "% of BP Met for Surge GP"
+      header: "% of BP Met for Surge GP"
+
+    - source: Surge Commission Earned Revenue
+      header: Surge Commission Earned Revenue
+
+    - source: Surge Commission Earned GP
+      header: Surge Commission Earned GP
+
+    - source: Total Surge Commission Earned
+      header: Total Surge Commission earned
+
+
+    # =====================================================
+    # SIP 31–40
+    # =====================================================
+
+    - source: "% BP Met for Spl Surge (Rev)"
+      header: "% BP Met for Spl Surge (Rev)"
+
+    - source: "% BP Met for Spl Surge (Surge %) (GP)"
+      header: "% BP Met for Spl Surge (GP)"
+
+    - source: Spl Surge Commission Earned Rev
+      header: Spl Surge Commission Earned Rev
+
+    - source: Spl Surge Commission Earned GP
+      header: Spl Surge Commission Earned GP
+
+    - source: Total Spl Surge Commission Earned
+      header: Total Spl Surge Commission earned
+
+
+    # =====================================================
+    # SIP 41–45
+    # =====================================================
+
+    - source: SIP Earned on Revenue
+      header: SIP Earned on Revenue
+
+    - source: SIP Earned on GP
+      header: SIP Earned on GP
+
+    - source: YTD SIP Earned
+      header: YTD SIP Earned
+
+    - source: YTD SIP Earned (Payroll Cur.)
+      header: YTD SIP Earned (Payroll Cur)
+
+    - source: Flag
+      header: Flag
+
+
+    # =====================================================
+    # SIP 46–59
+    # =====================================================
+
+    - source: Guarantee SIP (Q2)
+      header: Guarantee SIP(Q2)
+
+    - source: Overpayment
+      header: Overpayment
+
+    - source: Q1 Payment (Region Currency)
+      header: Q1 Payment in Region Currency (RC)
+
+    - source: Q2 Payment (Region Currency)
+      header: Q2 Payment in Region Currency (RC)
+
+    - source: Q3 Payment (Region Currency)
+      header: Q3 Payment in Region Currency (RC)
+
+    - source: Overpayment (Payroll Currency)
+      header: Over Payment (Payroll Currency)
+
+    - source: Q1 Payment (Payroll Currency)
+      header: Q1 Payment (Payroll Currency)
+
+    - source: Q2 Payment (Payroll Currency)
+      header: Q2 Payment (Payroll Currency)
+
+    - source: Q3 Payment (Payroll Currency)
+      header: Q3 Payment (Payroll Currency)
+
+    - source: Crossed Gtee Payment (Region Currency)
+      header: Crossed Gtee Payment (Region Currency)
+
+    - source: NACS Region Currency
+      header: NACS Region Currency
+
+    - source: NACS Payroll Currency
+      header: NACS Payroll Currency
+
+    # SIP 59 is currently not calculated.
+    # This column will be created as blank because
+    # missing_column_policy is add_null.
+    - source: USD (@CC)
+      header: USD (@ CC)

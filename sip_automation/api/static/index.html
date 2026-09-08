@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SIP Automation</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- Simple demo login gate: client-side only, any username + shared
+     password. No backend/session/API protection - see app.js. -->
+<section id="login-section" class="login-screen">
+  <div class="login-panel login-panel-brand">
+    <img src="login-logo-panel.png" alt="Solenis" class="login-logo" />
+  </div>
+  <div class="login-panel login-panel-form">
+    <div class="login-card">
+      <div class="login-header">
+        <h1 class="login-title">SIP Automation</h1>
+        <p class="subtitle">Sign in to run the SIP pipeline.</p>
+      </div>
+
+      <h2>Log In</h2>
+
+      <div id="login-error" class="banner banner-error" hidden></div>
+
+      <form id="login-form">
+        <label class="file-field">
+          <span>Username</span>
+          <input type="text" id="login-username" autocomplete="username" required />
+        </label>
+
+        <label class="file-field">
+          <span>Password</span>
+          <input type="password" id="login-password" autocomplete="current-password" required />
+        </label>
+
+        <button type="submit" class="btn btn-primary">Log In</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<div id="app-shell" hidden>
+
+<div class="header-bar">
+  <div class="header-spacer" aria-hidden="true"></div>
+  <header class="app-header">
+    <div class="app-title">
+      <img src="solenis-leaf.png" alt="" class="header-logo" />
+      <h1>SIP Automation</h1>
+    </div>
+    <p class="subtitle">Upload the 6 source files to run the pipeline and view results.</p>
+    <div id="calculation-period-badge" class="calculation-period-badge" hidden></div>
+  </header>
+  <div class="header-actions">
+    <button type="button" id="admin-button" class="btn btn-header btn-header-admin">Admin Settings</button>
+    <button type="button" id="logout-button" class="btn btn-header btn-header-logout">Logout</button>
+  </div>
+</div>
+
+<main class="app-main">
+
+  <!-- Admin password gate: separate from the main login, since not every
+       analyst should be able to open Admin Settings. Client-side only,
+       same demo caveat as the main login - see app.js. -->
+  <section id="admin-password-section" class="card" hidden style="max-width: 400px; margin: 40px auto;">
+    <h2>Admin Access</h2>
+
+    <div id="admin-password-error" class="banner banner-error" hidden></div>
+
+    <form id="admin-password-form">
+      <label class="file-field">
+        <span>Admin Password</span>
+        <input type="password" id="admin-password-input" autocomplete="off" required />
+      </label>
+
+      <div style="display: flex; gap: 12px; margin-top: 16px;">
+        <button type="submit" class="btn btn-primary">Unlock</button>
+        <button type="button" id="admin-password-cancel-button" class="btn btn-secondary">Cancel</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- Admin settings -->
+  <section id="admin-section" class="card" hidden>
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+      <h2 style="margin: 0;">Admin Settings</h2>
+      <button type="button" id="admin-back-button" class="btn btn-secondary">&#8592; Back</button>
+    </div>
+
+    <div class="admin-tabs">
+      <button type="button" id="admin-tab-corrections-button" class="btn btn-secondary admin-tab-button" title="Available after files are uploaded">Data Corrections</button>
+      <button type="button" id="admin-tab-parameters-button" class="btn btn-secondary admin-tab-button">Parameters</button>
+      <button type="button" id="admin-tab-exceptions-button" class="btn btn-secondary admin-tab-button">Precompute Exceptions</button>
+      <button type="button" id="admin-tab-cam-button" class="btn btn-secondary admin-tab-button" title="Available after files are uploaded">CAM Allocations</button>
+      <button type="button" id="admin-tab-hr-exclusions-button" class="btn btn-secondary admin-tab-button" title="Available after files are uploaded">HR Exclusions</button>
+    </div>
+
+    <!-- Parameters tab: DUMMY / demo only. Editing values here does not
+         call any API and has no effect on real SIP calculations - see
+         app.js. -->
+    <div id="admin-parameters-panel">
+      <div class="banner banner-warning">
+        <strong>Warning:</strong> these parameters directly control SIP
+        commission calculations and payouts for the selected role. Changes
+        should be reviewed and approved by Finance before use.
+        <br />
+        <span class="banner-note">
+          Demo mode: changes made here are not saved and do not affect the
+          live pipeline.
+        </span>
+      </div>
+
+      <label class="toolbar-field" style="margin-bottom: 20px;">
+        <span>Role</span>
+        <select id="admin-role-select"></select>
+      </label>
+
+      <div id="admin-parameters"></div>
+
+      <div id="parameters-status" class="banner banner-info" hidden></div>
+      <div id="parameters-error" class="banner banner-error" hidden></div>
+
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button type="button" id="admin-reset-button" class="btn btn-secondary">Reset to Defaults</button>
+        <button type="button" id="apply-parameters-button" class="btn btn-primary" hidden>Apply Changes</button>
+      </div>
+    </div>
+
+    <!-- Precompute Exceptions tab: real backend, persisted to
+         data/precompute_exceptions.yaml, applied automatically before
+         every SIP calculation run - see app.js and
+         src/sip_automation/core/precompute_exceptions.py. -->
+    <div id="exceptions-panel" hidden>
+      <div class="banner banner-warning">
+        <strong>Note:</strong> these exceptions persist across every run and
+        are applied automatically before SIP calculations (BP/YTD Rev &amp;
+        GP adjustments, keyed by Employee ID).
+      </div>
+      <div class="banner banner-warning">
+        <strong>Bulk upload format:</strong>
+        <ul style="margin: 6px 0 0; padding-left: 20px;">
+          <li>One row per employee.</li>
+          <li>Fill in only the columns that apply to that employee (e.g.
+            just <code>bp_fy26_rev</code> + <code>bp_fy26_rev_direction</code>)
+            and leave the rest blank.</li>
+          <li>If you enter an amount, its matching <code>_direction</code>
+            column (<code>+</code> or <code>-</code>) is required, or that
+            row will be rejected.</li>
+          <li>Uploading replaces the entire exceptions list.</li>
+          <li><a href="/ui/exceptions_upload_template.csv" download>Download template</a></li>
+        </ul>
+      </div>
+
+      <div id="exceptions-error" class="banner banner-error" hidden></div>
+      <div id="exceptions-status" class="banner banner-warning" hidden></div>
+      <div id="exceptions-upload-summary" class="banner banner-warning" hidden></div>
+      <div style="margin-bottom: 16px;">
+        <button type="button" id="exceptions-view-results-button" class="btn-link" hidden>View Results</button>
+        <button type="button" id="exceptions-recalculate-button" class="btn-link" hidden>Recalculate Now</button>
+      </div>
+
+      <button type="button" id="exceptions-add-button" class="btn btn-primary" style="margin-bottom: 16px;">Add Exception</button>
+      <button type="button" id="exceptions-upload-button" class="btn btn-secondary" style="margin-bottom: 16px;">Upload Exceptions</button>
+      <input type="file" id="exceptions-upload-input" accept=".xlsx,.xls,.csv" hidden />
+
+      <div class="table-wrapper">
+        <table id="exceptions-table">
+          <thead>
+            <tr>
+              <th>Employee ID</th>
+              <th>Employee Name</th>
+              <th>Category</th>
+              <th>BP FY26 Rev</th>
+              <th>BP FY26 GP</th>
+              <th>YTD FY26 Rev</th>
+              <th>YTD FY26 GP</th>
+              <th># Months Eligible (Override)</th>
+              <th>YTD Actual Revenue (Override)</th>
+              <th>YTD Actual GP/DOP (Override)</th>
+              <th>BP SG&amp;A</th>
+              <th>YTD SG&amp;A</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-top: 16px;">
+        <button type="button" id="corrections-apply-all-button"
+                class="btn btn-primary" hidden>Apply All Changes</button>
+        <button type="button" id="corrections-view-results-button"
+                class="btn btn-secondary" hidden>View Results</button>
+      </div>
+    </div>
+
+    <!-- Data Corrections tab: persistent source-data corrections applied
+         before canonical processing. Stored in data/data_corrections.yaml. -->
+    <div id="corrections-panel" hidden>
+      <div class="banner banner-warning">
+        <strong>Note:</strong> These corrections override raw source data before
+        canonical processing. Use the exact column header from your uploaded
+        Excel file. Changes persist across all future runs until deleted.
+      </div>
+
+      <div id="corrections-error" class="banner banner-error" hidden></div>
+      <div id="corrections-status" class="banner banner-info" hidden></div>
+
+      <button type="button" id="corrections-add-button"
+              class="btn btn-primary" style="margin-bottom: 16px;">Add Correction</button>
+
+      <div class="table-wrapper">
+        <table id="corrections-table">
+          <thead>
+            <tr>
+              <th>Employee ID</th>
+              <th>Employee Name</th>
+              <th>Source File</th>
+              <th>Column</th>
+              <th>New Value</th>
+              <th>Note</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- HR Exclusions tab: manage which employees are excluded from calculations. -->
+    <div id="hr-exclusions-panel" hidden>
+      <div class="banner banner-warning">
+        <strong>Note:</strong> Employees listed here are skipped in all SIP calculations.
+        Remove an employee to include them back, then click <strong>Recalculate</strong>.
+      </div>
+
+      <div id="hr-excl-error" class="banner banner-error" hidden></div>
+      <div id="hr-excl-status" class="banner banner-info" hidden></div>
+
+      <div class="results-toolbar" style="margin-bottom: 12px;">
+        <button type="button" id="hr-excl-add-button" class="btn btn-secondary">Add Employee ID</button>
+        <label class="toolbar-field toolbar-search">
+          <span>Search</span>
+          <input type="text" id="hr-excl-search-input" placeholder="Filter by Employee ID..." />
+        </label>
+      </div>
+
+      <div id="hr-excl-list" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;"></div>
+      <p id="hr-excl-empty" class="hint" hidden>No employees are currently excluded — all will be included in calculations.</p>
+
+      <div style="display: flex; gap: 12px; margin-top: 16px;">
+        <button type="button" id="hr-excl-recalc-button" class="btn btn-primary" hidden>Recalculate</button>
+        <button type="button" id="hr-excl-view-results-button" class="btn btn-secondary" hidden>View Results</button>
+      </div>
+    </div>
+
+    <!-- CAM Allocations tab: override computed allocation ratios for CAM
+         employees. Stored in data/cam_allocation_overrides.yaml. -->
+    <div id="cam-panel" hidden>
+      <div class="banner banner-warning">
+        <strong>Note:</strong> These override the auto-computed allocation %
+        (CAM BP target &divide; total division BP target) used when allocating
+        actual revenue and GP to each CAM. Leave Division Node blank to apply
+        to all divisions for a CAM. Changes apply when calculations re-run.
+      </div>
+
+      <div id="cam-error" class="banner banner-error" hidden></div>
+      <div id="cam-status" class="banner banner-warning" hidden></div>
+      <button type="button" id="cam-view-results-button"
+              class="btn btn-secondary" style="margin-bottom: 16px;" hidden>View Results</button>
+
+      <div class="results-toolbar" style="margin-bottom: 12px;">
+        <button type="button" id="cam-add-button" class="btn btn-primary">Add Override</button>
+        <label class="toolbar-field toolbar-search">
+          <span>Search</span>
+          <input type="text" id="cam-search-input"
+                 placeholder="Filter by CAM ID or Division..." />
+        </label>
+      </div>
+
+      <div class="table-wrapper">
+        <table id="cam-table">
+          <thead>
+            <tr>
+              <th>CAM ID</th>
+              <th>Division Node</th>
+              <th>Rev % (Computed)</th>
+              <th>Override Rev %</th>
+              <th>GP % (Computed)</th>
+              <th>Override GP %</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div id="cam-pending-hint" class="hint" style="margin-top: 10px;"></div>
+
+      <div style="display: flex; gap: 12px; margin-top: 16px;">
+        <button type="button" id="cam-apply-all-button" class="btn btn-primary" hidden>Apply All Changes</button>
+        <button type="button" id="cam-discard-button" class="btn btn-secondary" hidden>Discard Changes</button>
+        <button type="button" id="cam-view-results-button" class="btn btn-secondary" hidden>View Results</button>
+      </div>
+    </div>
+
+  </section>
+  <div id="correction-modal" class="modal-overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="correction-modal-title">Add Correction</h3>
+        <button type="button" id="correction-modal-close" class="btn btn-secondary">Close</button>
+      </div>
+      <div id="correction-form-error" class="banner banner-error" hidden></div>
+      <form id="correction-form">
+        <div class="file-grid">
+          <label class="file-field">
+            <span>Employee ID</span>
+            <input type="text" id="correction-employee-id" required />
+          </label>
+          <label class="file-field">
+            <span>Employee Name (optional)</span>
+            <input type="text" id="correction-employee-name" />
+          </label>
+          <label class="file-field">
+            <span>Source File</span>
+            <select id="correction-source-file"></select>
+          </label>
+          <label class="file-field">
+            <span>Column Name</span>
+            <select id="correction-column-name-select" hidden></select>
+            <input type="text" id="correction-column-name"
+                   placeholder="Exact header from your Excel file" />
+          </label>
+          <label class="file-field">
+            <span>New Value</span>
+            <input type="text" id="correction-new-value" required />
+          </label>
+          <label class="file-field">
+            <span>Note (optional)</span>
+            <input type="text" id="correction-note" placeholder="Reason for this correction" />
+          </label>
+        </div>
+        <div style="display: flex; gap: 12px; margin-top: 16px;">
+          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="button" id="correction-form-cancel" class="btn btn-secondary">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- HR Reconciliation: shown after login when no active run. -->
+  <section id="hr-reconciliation-section" class="card" hidden>
+    <h2>HR Reconciliation</h2>
+    <p class="subtitle" style="margin-bottom: 6px;">Upload two HR roster files to compare employee changes before running the pipeline.</p>
+    <p class="subtitle">Employees you mark for exclusion will be skipped in all future calculations.</p>
+
+    <div id="hr-recon-error" class="banner banner-error" hidden></div>
+
+    <div class="file-grid" style="margin-top: 20px;">
+      <label class="file-field">
+        <span>Q1 HR File (previous period)</span>
+        <input type="file" id="hr-q1-file" accept=".xlsx,.xlsm,.xlsb,.xls,.csv" />
+      </label>
+      <label class="file-field">
+        <span>Q2 HR File (current period)</span>
+        <input type="file" id="hr-q2-file" accept=".xlsx,.xlsm,.xlsb,.xls,.csv" />
+      </label>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 12px; margin-top: 12px;">
+      <button type="button" id="hr-compare-button" class="btn btn-secondary">Compare</button>
+    </div>
+
+    <!-- Diff results -->
+    <div id="hr-diff-section" hidden>
+      <div id="hr-summary-bar" class="hr-summary-bar"></div>
+
+      <div class="hr-filter-row">
+        <strong>Show:</strong>
+        <label><input type="checkbox" id="hr-filter-new-joiners" checked /> New Joiners</label>
+        <label><input type="checkbox" id="hr-filter-leavers" checked /> Leavers</label>
+        <label><input type="checkbox" id="hr-filter-changes" checked /> Field Changes</label>
+      </div>
+
+      <div class="table-wrapper">
+        <table id="hr-diff-table">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="hr-exclude-all" title="Select all visible" /></th>
+              <th>Employee ID</th>
+              <th>Full Name</th>
+              <th>Change Type</th>
+              <th>Field</th>
+              <th>Reason</th>
+              <th>Q1 Value</th>
+              <th>Q2 Value</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p id="hr-exclude-hint" class="hint"></p>
+    </div>
+
+    <div id="hr-saved-exclusions" hidden>
+      <p class="hint" style="margin-bottom: 8px;"><strong>Currently excluded employees</strong> — uncheck any to include them back, then click Save &amp; Continue.</p>
+      <div id="hr-saved-list" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;"></div>
+    </div>
+
+    <div style="display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap;">
+      <button type="button" id="hr-confirm-button" class="btn btn-primary" hidden>Save &amp; Continue</button>
+      <button type="button" id="hr-skip-button" class="btn btn-secondary">Skip</button>
+    </div>
+  </section>
+
+  <!-- Upload form -->
+  <section id="upload-section" class="card">
+    <h2>1. Upload files</h2>
+
+    <div id="upload-error" class="banner banner-error" hidden></div>
+
+    <form id="upload-form">
+      <div class="file-grid">
+        <label class="file-field">
+          <span>Employee file</span>
+          <input type="file" id="employee_file" accept=".xlsx,.xlsm,.xlsb,.xls" required />
+        </label>
+
+        <label class="file-field">
+          <span>BP file</span>
+          <input type="file" id="bp_file" accept=".xlsx,.xlsm,.xlsb,.xls" required />
+        </label>
+
+        <label class="file-field">
+          <span>Sales file</span>
+          <input type="file" id="sales_file" accept=".xlsx,.xlsm,.xlsb,.xls" required />
+        </label>
+
+        <label class="file-field">
+          <span>NACS Guarantee file</span>
+          <input type="file" id="nacs_guarantee_file" accept=".xlsx,.xlsm,.xlsb,.xls" required />
+        </label>
+
+        <label class="file-field">
+          <span>YTD Payments file</span>
+          <input type="file" id="ytd_payments_file" accept=".xlsx,.xlsm,.xlsb,.xls" required />
+        </label>
+
+        <label class="file-field">
+          <span>BDM file</span>
+          <input type="file" id="bdm_file" accept=".xlsx,.xlsm,.xlsb,.xls" required />
+        </label>
+      </div>
+
+      <button type="submit" id="run-button" class="btn btn-primary">Run Pipeline</button>
+    </form>
+  </section>
+
+  <!-- Progress -->
+  <section id="progress-section" class="card" hidden>
+    <h2>2. Processing</h2>
+
+    <div class="stepper">
+      <div class="step" data-step="1">
+        <div class="step-marker">1</div>
+        <div class="step-label">Uploading files &amp; loading raw data</div>
+      </div>
+      <div class="step" data-step="2">
+        <div class="step-marker">2</div>
+        <div class="step-label">Building canonical data</div>
+      </div>
+      <div class="step" data-step="3">
+        <div class="step-marker">3</div>
+        <div class="step-label">Running SIP calculations</div>
+      </div>
+      <div class="step" data-step="4">
+        <div class="step-marker">4</div>
+        <div class="step-label">Results ready</div>
+      </div>
+    </div>
+
+    <div class="progress-track">
+      <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
+    </div>
+
+    <div id="progress-error" class="banner banner-error" hidden></div>
+
+    <button type="button" id="start-over-button" class="btn btn-secondary" hidden>Start Over</button>
+  </section>
+
+</main>
+
+<!-- Results: kept as a sibling of .app-main (not nested inside it) so it
+     can use a wider max-width than the upload/progress cards, without
+     needing any CSS breakout tricks. See #results-section in styles.css. -->
+<section id="results-section" class="card" hidden>
+  <h2>Results</h2>
+
+  <div class="results-toolbar">
+    <label class="toolbar-field">
+      <span>Role</span>
+      <select id="role-select"></select>
+    </label>
+
+    <label class="toolbar-field toolbar-search">
+      <span>Search</span>
+      <input type="text" id="search-input" placeholder="Search by any visible column..." />
+    </label>
+
+    <a id="download-link" class="btn btn-secondary" href="#" download>Download CSV</a>
+
+    <button type="button" id="new-run-button" class="btn btn-secondary">Start New Run</button>
+  </div>
+
+  <div id="results-summary" class="results-summary"></div>
+
+  <div class="table-wrapper">
+    <table id="results-table">
+      <thead></thead>
+      <tbody></tbody>
+    </table>
+    <div id="results-empty-state" class="results-empty-state" hidden>
+      No matching records found.
+    </div>
+  </div>
+
+  <div class="pagination">
+    <button type="button" id="prev-page-button" class="btn btn-secondary">Prev</button>
+    <span id="page-indicator"></span>
+    <button type="button" id="next-page-button" class="btn btn-secondary">Next</button>
+  </div>
+</section>
+
+<!-- Row detail modal -->
+<div id="row-modal" class="modal-overlay" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Employee detail</h3>
+      <button type="button" id="modal-close-button" class="btn btn-secondary">Close</button>
+    </div>
+    <dl id="modal-body" class="modal-body"></dl>
+  </div>
+</div>
+
+<!-- Precompute exception add/edit modal -->
+<div id="exception-modal" class="modal-overlay" hidden>
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <h3 id="exception-modal-title">Add Exception</h3>
+      <button type="button" id="exception-modal-close-button" class="btn btn-secondary">Close</button>
+    </div>
+
+    <div id="exception-form-error" class="banner banner-error" hidden></div>
+
+    <form id="exception-form">
+      <div class="file-grid">
+        <label class="file-field">
+          <span>Employee ID</span>
+          <input type="text" id="exception-employee-id" required />
+        </label>
+
+        <label class="file-field">
+          <span>Employee Name</span>
+          <input type="text" id="exception-employee-name" />
+        </label>
+
+        <label class="file-field">
+          <span>Category</span>
+          <select id="exception-category-select"></select>
+        </label>
+
+        <label class="file-field" id="exception-category-custom-field" hidden>
+          <span>Custom Category</span>
+          <input type="text" id="exception-category-custom" />
+        </label>
+      </div>
+
+      <!-- Complete overrides: when entered, these replace the calculated
+           metric outright for this employee (no percentage/direction). -->
+      <fieldset class="admin-group">
+        <legend># Months Eligible (Override)</legend>
+        <div class="file-grid">
+          <label class="file-field">
+            <span>Value</span>
+            <input type="number" step="0.01" id="exception-months-eligible-override" placeholder="Leave blank to use the calculated value" />
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="admin-group">
+        <legend>YTD Actual Revenue (Override)</legend>
+        <div class="file-grid">
+          <label class="file-field">
+            <span>Value</span>
+            <input type="number" step="0.01" id="exception-ytd-actual-revenue-override" placeholder="Leave blank to use the calculated value" />
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="admin-group">
+        <legend>YTD Actual GP/DOP (Override)</legend>
+        <div class="file-grid">
+          <label class="file-field">
+            <span>Value</span>
+            <input type="number" step="0.01" id="exception-ytd-actual-gp-dop-override" placeholder="Leave blank to use the calculated value" />
+          </label>
+        </div>
+      </fieldset>
+
+      <!-- When entered, subtracted from Target GP/DOP DIRECT / YTD Actual
+           GP/DOP before any other adjustments (no percentage/direction). -->
+      <fieldset class="admin-group">
+        <legend>BP SG&amp;A</legend>
+        <div class="file-grid">
+          <label class="file-field">
+            <span>Value</span>
+            <input type="number" step="0.01" id="exception-bp-sga" placeholder="Leave blank for no SG&A deduction" />
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="admin-group">
+        <legend>YTD SG&amp;A</legend>
+        <div class="file-grid">
+          <label class="file-field">
+            <span>Value</span>
+            <input type="number" step="0.01" id="exception-ytd-sga" placeholder="Leave blank for no SG&A deduction" />
+          </label>
+        </div>
+      </fieldset>
+
+      <!-- Each amount field has its own independent percentage + direction:
+           magnitude = amount * percentage/100 (or amount, if % is blank),
+           then added or subtracted per that field's direction. -->
+      <fieldset class="admin-group">
+        <legend>BP FY26 Rev</legend>
+        <div class="file-grid">
+          <label class="file-field">
+            <span>Amount</span>
+            <input type="number" step="0.01" id="exception-bp-rev" />
+          </label>
+          <label class="file-field">
+            <span>Percentage (%, optional)</span>
+            <input type="number" step="0.01" min="0" id="exception-bp-rev-percentage" placeholder="Leave blank to use the full amount" />
+          </label>
+          <label class="file-field">
+            <span>Direction</span>
+            <select id="exception-bp-rev-direction">
+              <option value="+">+ Add</option>
+              <option value="-">- Subtract</option>
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="admin-group">
+        <legend>BP FY26 GP</legend>
+        <div class="file-grid">
+          <label class="file-field">
+            <span>Amount</span>
+            <input type="number" step="0.01" id="exception-bp-gp" />
+          </label>
+          <label class="file-field">
+            <span>Percentage (%, optional)</span>
+            <input type="number" step="0.01" min="0" id="exception-bp-gp-percentage" placeholder="Leave blank to use the full amount" />
+          </label>
+          <label class="file-field">
+            <span>Direction</span>
+            <select id="exception-bp-gp-direction">
+              <option value="+">+ Add</option>
+              <option value="-">- Subtract</option>
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="admin-group">
+        <legend>YTD FY26 Rev</legend>
+        <div class="file-grid">
+          <label class="file-field">
+            <span>Amount</span>
+            <input type="number" step="0.01" id="exception-ytd-rev" />
+          </label>
+          <label class="file-field">
+            <span>Percentage (%, optional)</span>
+            <input type="number" step="0.01" min="0" id="exception-ytd-rev-percentage" placeholder="Leave blank to use the full amount" />
+          </label>
+          <label class="file-field">
+            <span>Direction</span>
+            <select id="exception-ytd-rev-direction">
+              <option value="+">+ Add</option>
+              <option value="-">- Subtract</option>
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="admin-group">
+        <legend>YTD FY26 GP</legend>
+        <div class="file-grid">
+          <label class="file-field">
+            <span>Amount</span>
+            <input type="number" step="0.01" id="exception-ytd-gp" />
+          </label>
+          <label class="file-field">
+            <span>Percentage (%, optional)</span>
+            <input type="number" step="0.01" min="0" id="exception-ytd-gp-percentage" placeholder="Leave blank to use the full amount" />
+          </label>
+          <label class="file-field">
+            <span>Direction</span>
+            <select id="exception-ytd-gp-direction">
+              <option value="+">+ Add</option>
+              <option value="-">- Subtract</option>
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <div style="display: flex; gap: 12px; margin-top: 16px;">
+        <button type="submit" id="exception-form-save-button" class="btn btn-secondary">Save</button>
+        <button type="submit" id="exception-form-apply-button" class="btn btn-primary">Apply</button>
+        <button type="button" id="exception-form-cancel-button" class="btn btn-secondary">Cancel</button>
+      </div>
+      <p class="hint" style="margin-top: 8px;">
+        <strong>Save</strong> keeps you on this panel so you can enter more exceptions.
+        <strong>Apply</strong> saves this exception and immediately shows the updated Results.
+      </p>
+    </form>
+  </div>
+</div>
+
+</div>
+
+<!-- CAM allocation override add/edit modal -->
+<div id="cam-modal" class="modal-overlay" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="cam-modal-title">Add CAM Allocation Override</h3>
+      <button type="button" id="cam-modal-close" class="btn btn-secondary">Close</button>
+    </div>
+    <div id="cam-form-error" class="banner banner-error" hidden></div>
+    <form id="cam-form">
+      <div class="file-grid">
+        <label class="file-field">
+          <span>CAM ID</span>
+          <input type="text" id="cam-cam-id" required
+                 placeholder="CAM ID from the BP file" />
+        </label>
+        <label class="file-field">
+          <span>Employee Name (optional)</span>
+          <input type="text" id="cam-employee-name" />
+        </label>
+        <label class="file-field">
+          <span>Division Node (optional — blank = all divisions)</span>
+          <input type="text" id="cam-division-node"
+                 placeholder="Leave blank to apply to all divisions" />
+        </label>
+        <label class="file-field">
+          <span>Allocation % Revenue (optional)</span>
+          <input type="number" step="0.01" min="0" max="100"
+                 id="cam-pct-rev" placeholder="e.g. 35.5" />
+        </label>
+        <label class="file-field">
+          <span>Allocation % GP (optional)</span>
+          <input type="number" step="0.01" min="0" max="100"
+                 id="cam-pct-gp" placeholder="e.g. 35.5" />
+        </label>
+        <label class="file-field">
+          <span>Note (optional)</span>
+          <input type="text" id="cam-note"
+                 placeholder="Reason for this override" />
+        </label>
+      </div>
+      <div style="display: flex; gap: 12px; margin-top: 16px;">
+        <button type="submit" id="cam-form-save" class="btn btn-secondary">Save</button>
+        <button type="submit" id="cam-form-apply" class="btn btn-primary">Apply</button>
+        <button type="button" id="cam-form-cancel" class="btn btn-secondary">Cancel</button>
+      </div>
+      <p class="hint" style="margin-top: 8px;">
+        <strong>Save</strong> stores the override.
+        <strong>Apply</strong> saves and immediately re-runs calculations.
+      </p>
+    </form>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

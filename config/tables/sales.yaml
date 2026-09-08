@@ -1,0 +1,840 @@
+table:
+  logical_name: sales
+
+  raw_target:
+    layer: raw
+    object: sales
+
+  canonical_target:
+    layer: canonical
+    object: sales
+
+  canonical_dependencies:
+    - employee
+
+
+# =========================================================
+# EXCEL → RAW.SALES
+# =========================================================
+
+source_to_raw:
+  mappings:
+
+    reporting_line:
+      aliases:
+        - Reporting_Line
+        - Reporting Line
+      required: true
+
+    region:
+      aliases:
+        - REGION
+        - Region
+      required: true
+
+    bu:
+      aliases:
+        - BU
+        - Business Unit
+      required: true
+
+    sales_district_description:
+      aliases:
+        - SalesDistrictDesc
+        - Sales District Description
+      required: false
+
+    sales_office_description:
+      aliases:
+        - salesofficedesc
+        - Sales office Description
+        - Sales Office Description
+      required: false
+
+    sales_group_description:
+      aliases:
+        - salesgroupdesc
+        - Sales Group Description
+      required: false
+
+    profitcentersbudesc:
+      aliases:
+        - ProfitCenterSBUDesc
+        - Profit Center SBU Description
+      required: false
+
+    fiscal_period:
+      aliases:
+        - FISCAL PERIOD
+        - Fiscal Period
+      required: true
+
+    ship_to:
+      aliases:
+        - ShipTo
+        - Ship To
+      required: false
+
+    ship_to_description:
+      aliases:
+        - shiptodesc
+        - ShipToDesc
+        - Ship To Description
+      required: false
+
+    ship_to_city:
+      aliases:
+        - shiptocity
+        - ShipToCity
+        - Ship To City
+      required: false
+
+    employee_id:
+      aliases:
+        - EMP ID
+        - Employee ID
+      required: false
+
+    material:
+      aliases:
+        - Material
+      required: false
+
+    material_description:
+      aliases:
+        - MaterialDesc
+        - Material Description
+      required: false
+
+    supply_point_name:
+      aliases:
+        - SUPPLY_POINT_NAME
+        - Supply Point Name
+      required: false
+
+    customergroupdesc:
+      aliases:
+        - CustomerGroupDesc
+        - Customer Group Description
+      required: false
+
+    customergroup1desc:
+      aliases:
+        - CustomerGroup1Desc
+        - Customer Group 1 Description
+      required: false
+
+    division_node:
+      aliases:
+        - DivisionNode
+        - Division Node
+      required: false
+
+    division_node_desc:
+      aliases:
+        - DivisionNodeDesc
+        - Division Node Description
+      required: false
+
+    division:
+      aliases:
+        - Division
+      required: false
+
+    company_code:
+      aliases:
+        - CompanyCode
+        - Company Code
+      required: false
+
+    currency_code:
+      aliases:
+        - Currencycode
+        - CurrencyCode
+        - Currency Code
+      required: true
+
+    shared_acc_flag:
+      aliases:
+        - SHARED_ACC_FLAG
+        - Shared Account Flag
+      required: false
+
+    split_share:
+      aliases:
+        - Split/Share
+        - Split Share
+      required: false
+
+    bp_direct_rev:
+      aliases:
+        - BP_Direct_Rev
+        - BP Direct Rev
+      required: false
+
+    bp_direct_gp:
+      aliases:
+        - BP_Direct_GP
+        - BP Direct GP
+      required: false
+
+    bp_shared_rev:
+      aliases:
+        - BP_Shared_Rev
+        - BP Shared Rev
+      required: false
+
+    bp_shared_gp:
+      aliases:
+        - BP_Shared_GP
+        - BP Shared GP
+      required: false
+
+    cc_direct_rev:
+      aliases:
+        - $CC_Direct_Rev
+        - CC_Direct_Rev
+        - CC Direct Rev
+      required: false
+
+    cc_direct_gp:
+      aliases:
+        - $CC_Direct_GP
+        - CC_Direct_GP
+        - CC Direct GP
+      required: false
+
+    cc_shared_rev:
+      aliases:
+        - $CC_Shared_Rev
+        - CC_Shared_Rev
+        - CC Shared Rev
+      required: false
+
+    cc_shared_gp:
+      aliases:
+        - $CC_Shared_GP
+        - CC_Shared_GP
+        - CC Shared GP
+      required: false
+
+    comments:
+      aliases:
+        - Comments
+        - Comment
+      required: false
+
+    preferred_name:
+      aliases:
+        - EMP Name
+        - Employee name
+        - Employee Name
+      required: false
+
+  exclude_unmapped_columns: true
+
+  generated_values:
+    record_source:
+      runtime_parameter: record_source.sales
+
+
+# =========================================================
+# RAW.SALES → CANONICAL.SALES
+# =========================================================
+
+raw_to_canonical:
+  direct_mappings:
+    sales_target_sk: sales_target_sk
+    reporting_line: reporting_line
+    region: region
+    bu: bu
+    sales_district_description: sales_district_description
+    sales_office_description: sales_office_description
+    sales_group_description: sales_group_description
+    profitcentersbudesc: profitcentersbudesc
+    fiscal_period: fiscal_period
+    ship_to: ship_to
+    ship_to_description: ship_to_description
+    ship_to_city: ship_to_city
+    employee_id: employee_id
+    material: material
+    material_description: material_description
+    supply_point_name: supply_point_name
+    customergroupdesc: customergroupdesc
+    customergroup1desc: customergroup1desc
+    division_node: division_node
+    division_node_desc: division_node_desc
+    division: division
+    company_code: company_code
+    currency_code: currency_code
+    shared_acc_flag: shared_acc_flag
+    split_share: split_share
+    bp_direct_rev: bp_direct_rev
+    bp_direct_gp: bp_direct_gp
+    bp_shared_rev: bp_shared_rev
+    bp_shared_gp: bp_shared_gp
+    cc_direct_rev: cc_direct_rev
+    cc_direct_gp: cc_direct_gp
+    cc_shared_rev: cc_shared_rev
+    cc_shared_gp: cc_shared_gp
+    preferred_name: preferred_name
+    created_at: created_at
+
+
+# =========================================================
+# CLEANING
+# =========================================================
+
+cleaning:
+  trim_strings: true
+  collapse_internal_whitespace: true
+  normalize_empty_strings: true
+
+  null_markers:
+    - ""
+    - "#N/A"
+    - "N/A"
+    - "NA"
+    - "null"
+    - "None"
+    - "-"
+
+  uppercase:
+    - reporting_line
+    - region
+    - bu
+    - currency_code
+
+
+# =========================================================
+# CANONICAL DATATYPES
+# =========================================================
+
+columns:
+
+  sales_target_sk:
+    type: integer
+    nullable: false
+
+  reporting_line:
+    type: string
+    nullable: true
+    max_length: 10
+
+  region:
+    type: string
+    nullable: true
+    max_length: 10
+
+  bu:
+    type: string
+    nullable: true
+    max_length: 100
+
+  sales_district_description:
+    type: string
+    nullable: true
+    max_length: 500
+
+  sales_office_description:
+    type: string
+    nullable: true
+    max_length: 500
+
+  sales_group_description:
+    type: string
+    nullable: true
+    max_length: 500
+
+  profitcentersbudesc:
+    type: string
+    nullable: true
+    max_length: 500
+
+  fiscal_period:
+    type: string
+    nullable: true
+    max_length: 7
+
+  ship_to:
+    type: string
+    nullable: true
+    max_length: 50
+
+  ship_to_description:
+    type: string
+    nullable: true
+    max_length: 500
+
+  ship_to_city:
+    type: string
+    nullable: true
+    max_length: 100
+
+  employee_id:
+    type: string
+    nullable: true
+    max_length: 30
+
+  material:
+    type: string
+    nullable: true
+    max_length: 100
+
+  material_description:
+    type: string
+    nullable: true
+    max_length: 500
+
+  supply_point_name:
+    type: string
+    nullable: true
+    max_length: 50
+
+  customergroupdesc:
+    type: string
+    nullable: true
+    max_length: 200
+
+  customergroup1desc:
+    type: string
+    nullable: true
+    max_length: 200
+
+  division_node:
+    type: string
+    nullable: true
+    max_length: 50
+
+  division_node_desc:
+    type: string
+    nullable: true
+    max_length: 100
+
+  division:
+    type: string
+    nullable: true
+    max_length: 50
+
+  company_code:
+    type: string
+    nullable: true
+    max_length: 10
+
+  currency_code:
+    type: currency_code
+    nullable: false
+
+  shared_acc_flag:
+    type: string
+    nullable: true
+    max_length: 50
+
+  split_share:
+    type: string
+    nullable: true
+    max_length: 50
+
+  bp_direct_rev:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  bp_direct_gp:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  bp_shared_rev:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  bp_shared_gp:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  cc_direct_rev:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 10
+
+  cc_direct_gp:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 10
+
+  cc_shared_rev:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 10
+
+  cc_shared_gp:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 10
+
+  ytd_rev:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  ytd_gp:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  cam_profitcenter_shipto_division_revenue:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  cam_profitcenter_shipto_division_gp:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  cam_low_margin_flag:
+    type: string
+    nullable: true
+    max_length: 50
+
+  sa_materials:
+    type: string
+    nullable: true
+    max_length: 50
+
+  operational_sbu:
+    type: string
+    nullable: true
+    max_length: 50
+
+  profitcenter_shipto_revenue:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  profitcenter_shipto_gp:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  low_margin_flag:
+    type: string
+    nullable: true
+    max_length: 20
+
+  gp_flag:
+    type: string
+    nullable: true
+    max_length: 20
+
+  gp_flag_cam:
+    type: string
+    nullable: true
+    max_length: 20
+
+  preferred_name:
+    type: string
+    nullable: true
+    max_length: 100
+
+  created_at:
+    type: timestamp
+    nullable: true
+
+
+# =========================================================
+# VALIDATION
+# =========================================================
+
+validations:
+
+  required_columns:
+    - sales_target_sk
+    - reporting_line
+    - region
+    - bu
+    - fiscal_period
+    - currency_code
+
+  regex:
+    currency_code: "^[A-Z]{3}$"
+
+    fiscal_period: "^[0-9]{7}$"
+
+
+# =========================================================
+# SAME-TABLE DERIVED COLUMNS
+# =========================================================
+
+derived_columns:
+
+  ytd_rev:
+    enabled: true
+    stage: after_enrichment
+    operation: sum
+
+    inputs:
+      - cc_direct_rev
+      - cc_shared_rev
+
+    null_as_zero: true
+
+
+  ytd_gp:
+    enabled: true
+    stage: after_enrichment
+    operation: sum
+
+    inputs:
+      - cc_direct_gp
+      - cc_shared_gp
+
+    null_as_zero: true
+
+  sa_materials:
+    enabled: true
+    stage: after_enrichment
+    operation: supply_point_sa_classification
+
+    inputs:
+      supply_point_name: supply_point_name
+
+    null_value: "Null"
+    null_result: "Non SA"
+    non_null_result: "SA Materials"
+
+  operational_sbu:
+    enabled: true
+    stage: after_enrichment
+    operation: operational_sbu_classification
+
+    inputs:
+      column: profitcentersbudesc
+
+    values:
+      - "Tolled Products"
+      - "Raw Materials"
+      - "Equipment"
+      - "Solenis Corporate & Support"
+      - "Service"
+      - "SG&A"
+      - "BASF Products"
+      - "GE Supply"
+      - "NON PA"
+      - "Others"
+      - "Plant expenses"
+      - "Water GE"
+      - "Wood Prod"
+      - "REAGENTS AND LABWARE"
+      - "No SBU"
+      - "Water GEWT"
+
+    null_is_non_operational: true
+
+    non_operational_result: "Non-Operational SBU"
+    operational_result: "Operational SBU"
+
+  low_margin_enrichment:
+    enabled: true
+    stage: after_enrichment
+    operation: grouped_margin_enrichment
+
+    group_by:
+      - profitcentersbudesc
+      - ship_to
+
+    inputs:
+      revenue: ytd_rev
+      gp: ytd_gp
+
+    threshold: 0.15
+    zero_tolerance: 0.000001
+
+    both_zero_result: "N/A"
+    revenue_zero_gp_present_result: "OK"
+    below_threshold_result: "Below 15%"
+    pass_result: "OK"
+
+    outputs:
+      grouped_revenue: profitcenter_shipto_revenue
+      grouped_gp: profitcenter_shipto_gp
+      classification: low_margin_flag
+
+  gp_flag:
+    enabled: true
+    stage: after_enrichment
+    operation: gp_flag_classification
+
+    inputs:
+      exception: exceptions
+      operational_sbu: operational_sbu
+      sa_materials: sa_materials
+      low_margin_flag: low_margin_flag
+
+    non_operational_value: "Non-Operational SBU"
+    sa_material_value: "SA Materials"
+    acceptable_margin_value: "OK"
+
+    pass_result: "OK"
+    fail_result: "Not OK"   
+
+  cam_low_margin_enrichment:
+    enabled: true
+    stage: after_enrichment
+    operation: grouped_margin_enrichment
+
+    require_non_null:
+      - division_node
+
+    group_by:
+      - profitcentersbudesc
+      - ship_to
+      - division_node
+
+    inputs:
+      revenue: ytd_rev
+      gp: ytd_gp
+
+    threshold: 0.15
+    zero_tolerance: 0.000001
+
+    both_zero_result: "N/A"
+    revenue_zero_gp_present_result: "OK"
+    below_threshold_result: "Below 15%"
+    pass_result: "OK"
+
+    outputs:
+      grouped_revenue: cam_profitcenter_shipto_division_revenue
+      grouped_gp: cam_profitcenter_shipto_division_gp
+      classification: cam_low_margin_flag
+
+  gp_flag_cam:
+    enabled: true
+    stage: after_enrichment
+    operation: gp_flag_cam_classification
+
+    inputs:
+      division_node: division_node
+      exception: exceptions
+      operational_sbu: operational_sbu
+      sa_materials: sa_materials
+      low_margin_flag: cam_low_margin_flag
+
+    non_operational_value: "Non-Operational SBU"
+    sa_material_value: "SA Materials"
+    acceptable_margin_value: "OK"
+
+    pass_result: "OK"
+    fail_result: "Not OK"
+
+lookups:
+
+  - name: employee_reference
+    enabled: true
+
+    reference:
+      layer: canonical
+      object: employee
+
+    # ---- OLD (v1): no reference_filters key existed here ----
+    # (the reference read pulled every row in canonical.employee across
+    # all runs ever executed, with no filtering at all)
+    # ---- END OLD (v1) ----
+
+    # ---- NEW (v2 change): scope the reference read to the current run ----
+    # Without this, canonical.employee accumulates rows across every run
+    # ever executed, and duplicate employee_id values across runs trip the
+    # many_to_one cardinality check below (EnrichmentError: duplicate join
+    # keys).
+    reference_filters:  # v2 change
+      pipeline_run_id:  # v2 change
+        runtime_context: run_id  # v2 change
+    # ---- END NEW (v2 change) ----
+
+    join:
+      type: left
+
+      source_keys:
+        - employee_id
+
+      reference_keys:
+        - employee_id
+
+      cardinality: many_to_one
+
+    outputs:
+      preferred_name:
+        source_column: preferred_name
+        overwrite_existing: false
+
+
+
+# =========================================================
+# PUBLISH TO CANONICAL.SALES
+# =========================================================
+
+publish:
+  columns:
+    - sales_target_sk
+    - reporting_line
+    - region
+    - bu
+    - sales_district_description
+    - sales_office_description
+    - sales_group_description
+    - profitcentersbudesc
+    - fiscal_period
+    - ship_to
+    - ship_to_description
+    - ship_to_city
+    - employee_id
+    - material
+    - material_description
+    - supply_point_name
+    - customergroupdesc
+    - customergroup1desc
+    - division_node
+    - division_node_desc
+    - division
+    - company_code
+    - currency_code
+    - shared_acc_flag
+    - split_share
+    - bp_direct_rev
+    - bp_direct_gp
+    - bp_shared_rev
+    - bp_shared_gp
+    - cc_direct_rev
+    - cc_direct_gp
+    - cc_shared_rev
+    - cc_shared_gp
+    - ytd_rev
+    - ytd_gp
+    - sa_materials
+    - operational_sbu
+    - profitcenter_shipto_revenue
+    - profitcenter_shipto_gp
+    - low_margin_flag
+    - gp_flag
+    - created_at
+    - cam_profitcenter_shipto_division_revenue
+    - cam_profitcenter_shipto_division_gp
+    - cam_low_margin_flag
+    - gp_flag_cam

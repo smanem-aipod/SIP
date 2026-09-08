@@ -1,0 +1,2940 @@
+# =========================================================
+# SIP CALCULATION LIBRARY
+#
+# Contains:
+# - finance-controlled parameters
+# - shared lookup definitions
+# - generic employee-level calculations
+# - final published SIP columns
+#
+# Does not contain:
+# - role population filters
+# - role-specific grouping keys
+# - role-specific source-column bindings
+#
+# Those belong in role_mappings.yaml.
+# =========================================================
+
+library:
+  library_id: sip_calculations
+  name: "SIP Calculation Library"
+  version: "1.0"
+  enabled: true
+
+
+# =========================================================
+# FINANCE-CONTROLLED PARAMETERS
+# =========================================================
+
+parameters:
+
+  # Selected calculation period
+  fiscal_year: 2026
+  quarter: "Q2"
+
+  # Salary and target proration
+  annual_month_count: 12
+
+  # Maximum SIP rules
+  q2_max_sip_multiplier: 0.50
+  q3_max_sip_multiplier: 0.75
+  q4_high_target_multiplier: 3.00
+  q4_high_target_threshold: 0.33
+
+  # Target phasing for BP Revenue and GP/DOP
+  target_q2_multiplier: 0.50
+  target_q3_multiplier: 0.75
+  target_q4_multiplier: 1.00
+
+  # =======================================================
+  # COMMISSION RATE WEIGHTS
+  # =======================================================
+
+  revenue_incentive_weight: 0.65
+  gp_incentive_weight: 0.35
+
+  base_band_weight: 0.25
+  surge_band_weight: 0.75
+
+  base_achievement_band: 0.90
+  surge_achievement_band: 0.10
+
+  special_surge_revenue_cap: 0.05
+
+  special_surge_gp_floor: 0.0035
+  special_surge_gp_cap: 0.09
+
+  # =======================================================
+  # COMMISSION EARNING THRESHOLDS
+  # =======================================================
+
+  base_commission_threshold: 0.90
+  surge_commission_cap: 0.10
+  special_surge_threshold: 1.00
+
+# =========================================================
+# STATIC REFERENCE DATA / PLACEHOLDERS
+# =========================================================
+
+static_reference_data:
+
+  region_currency:
+    default: "USD"
+
+  flags:
+    ok: "OK"
+    crossed_cap: "Crossed CAP"
+
+  placeholders:
+    bp_sales_2026_shared: 0
+    bp_gp_2026_shared: 0
+
+    unallocated_cost_weight: 0
+
+    q2_payment_payroll_currency: 0
+    q3_payment_payroll_currency: 0
+
+    crossed_gtee_payment_region_currency: 0
+
+    q2_payment_region_currency: 0
+    q3_payment_region_currency: 0   
+
+
+
+# =========================================================
+# STAGE 1 — AGGREGATIONS
+#
+# Empty for SIP 1–8.
+# Role-specific aggregations will be added later.
+# =========================================================
+
+aggregation_metrics:
+
+  # =======================================================
+  # BP INTERMEDIATE AGGREGATIONS
+  #
+  # Role bindings determine:
+  # - group_by
+  # - source_keys
+  # - reference_keys
+  # =======================================================
+
+  bp_sales_2026_direct:
+    enabled: true
+    publish: true
+
+    output_name: "Target Sales Rev Direct"
+    operation: aggregate_sum
+
+    source_dataset:
+      role_mapping: bp.dataset
+
+    group_by:
+      role_mapping: bp.group_by
+
+    source_keys:
+      role_mapping: bp.source_keys
+
+    reference_keys:
+      role_mapping: bp.reference_keys
+
+    value_column: fy26_rev
+    default: 0
+
+
+  bp_gp_dop_2026_direct:
+    enabled: true
+    publish: false
+
+    output_name: "Target GP/DOP DIRECT"
+    operation: aggregate_sum
+
+    source_dataset:
+      role_mapping: bp.dataset
+
+    group_by:
+      role_mapping: bp.group_by
+
+    source_keys:
+      role_mapping: bp.source_keys
+
+    reference_keys:
+      role_mapping: bp.reference_keys
+
+    value_column: fy26_gp
+    default: 0
+
+
+  # =======================================================
+  # SIP 11
+  #
+  # Direct revenue actuals.
+  #
+  # All three roles apply:
+  # gp_flag = OK
+  #
+  # Role bindings determine the aggregation keys.
+  # =======================================================
+
+  # Computed from source data. May be overridden per-employee below via
+  # ytd_actual_revenue_override (see precompute_exceptions admin UI).
+  ytd_actual_revenue_computed:
+    enabled: true
+    publish: false
+
+    operation:
+      role_mapping: actuals.operation
+
+    source_dataset:
+      role_mapping: actuals.dataset
+
+    group_by:
+      role_mapping: actuals.group_by
+
+    source_keys:
+      role_mapping: actuals.source_keys
+
+    reference_keys:
+      role_mapping: actuals.reference_keys
+
+    value_column:
+      role_mapping: actuals.revenue_column
+
+    filters:
+      role_mapping: actuals.revenue_filters
+
+    allocation_dataset: bp
+    population_key: employee_id
+    allocation_entity_key: cam_id
+    allocation_group_key: division_node
+    source_group_key: division_node
+    weight_column: fy26_rev
+
+    default: 0
+
+
+  # =======================================================
+  # SIP 12
+  #
+  # Direct GP/DOP actuals.
+  #
+  # No GP flag filter.
+  # =======================================================
+
+  # Computed from source data. May be overridden per-employee below via
+  # ytd_actual_gp_dop_override (see precompute_exceptions admin UI).
+  ytd_actual_gp_dop_computed:
+    enabled: true
+    publish: false
+
+    operation:
+      role_mapping: actuals.operation
+
+    source_dataset:
+      role_mapping: actuals.dataset
+
+    group_by:
+      role_mapping: actuals.group_by
+
+    source_keys:
+      role_mapping: actuals.source_keys
+
+    reference_keys:
+      role_mapping: actuals.reference_keys
+
+    value_column:
+      role_mapping: actuals.gp_column
+
+    filters:
+      role_mapping: actuals.gp_filters
+
+    allocation_dataset: bp
+    population_key: employee_id
+    allocation_entity_key: cam_id
+    allocation_group_key: division_node
+    source_group_key: division_node
+    weight_column: fy26_gp
+
+    default: 0
+
+
+  # =======================================================
+  # SIP 13
+  #
+  # Sales Professional:
+  # aggregate cc_shared_rev with gp_flag = OK
+  #
+  # Area Manager / District Manager:
+  # constant zero
+  # =======================================================
+
+  shared_accounts_revenue:
+    enabled: true
+    publish: true
+
+    output_name: "Shared Accounts in Regional Currency (Revenue)"
+
+    operation:
+      role_mapping: shared.operation
+
+    source_dataset:
+      role_mapping: shared.dataset
+
+    group_by:
+      role_mapping: shared.group_by
+
+    source_keys:
+      role_mapping: shared.source_keys
+
+    reference_keys:
+      role_mapping: shared.reference_keys
+
+    value_column: cc_shared_rev
+
+    filters:
+      role_mapping: shared.revenue_filters
+
+    default: 0
+
+    value:
+      role_mapping: shared.placeholder_value
+
+
+  # =======================================================
+  # SIP 14
+  #
+  # Sales Professional:
+  # aggregate cc_shared_gp without GP flag filtering
+  #
+  # Area Manager / District Manager:
+  # constant zero
+  # =======================================================
+
+  shared_accounts_gp:
+    enabled: true
+    publish: true
+
+    output_name: "Shared Accounts in Regional Currency (GP)"
+
+    operation:
+      role_mapping: shared.operation
+
+    source_dataset:
+      role_mapping: shared.dataset
+
+    group_by:
+      role_mapping: shared.group_by
+
+    source_keys:
+      role_mapping: shared.source_keys
+
+    reference_keys:
+      role_mapping: shared.reference_keys
+
+    value_column: cc_shared_gp
+
+    filters:
+      role_mapping: shared.gp_filters
+
+    default: 0
+
+    value:
+      role_mapping: shared.placeholder_value
+
+
+# =========================================================
+# STAGE 2 — LOOKUPS
+# =========================================================
+
+lookup_metrics:
+
+  # -------------------------------------------------------
+  # Intermediate FX lookup
+  #
+  # employee.payroll_currency
+  #     =
+  # fx_rates.currency_code
+  #
+  # Returns:
+  # fx_rates.rate_value
+  # -------------------------------------------------------
+
+  payroll_fx_rate:
+    enabled: true
+    publish: false
+
+    operation: lookup
+
+    dataset: fx_rates
+
+    source_keys:
+      - payroll_currency
+
+    reference_keys:
+      - currency_code
+
+    value_column: rate_value
+
+    join_type: left
+    cardinality: many_to_one
+
+  # -------------------------------------------------------
+  # NACS Guarantee lookup
+  # -------------------------------------------------------
+
+  guarantee_sip_q2:
+    enabled: true
+    publish: true
+    output_name: "Guarantee SIP (Q2)"
+    operation: lookup
+
+    dataset: nacs_guarantee
+
+    source_keys:
+      - employee_id
+
+    reference_keys:
+      - employee_id
+
+    value_column: calculated_sip_usd
+
+    cardinality: many_to_one
+    join_type: left
+    default: 0
+
+
+  guarantee_eligibility_fy26_months:
+    enabled: true
+    publish: false
+    output_name: "Guarantee Eligibility FY26 Months"
+    operation: lookup
+
+    dataset: nacs_guarantee
+
+    source_keys:
+      - employee_id
+
+    reference_keys:
+      - employee_id
+
+    value_column: guarantee_eligibility_fy26_months
+
+    cardinality: many_to_one
+    join_type: left
+    default: 0
+
+
+  q1_payment_payroll_currency:
+    enabled: true
+    publish: true
+    output_name: "Q1 Payment (Payroll Currency)"
+    operation: lookup
+
+    dataset: ytd_payments
+
+    source_keys:
+      - employee_id
+
+    reference_keys:
+      - employee_id
+
+    value_column: sip_payroll_currency
+
+    cardinality: many_to_one
+    join_type: left
+    default: 0
+# =========================================================
+# STAGE 3 — DERIVED METRICS
+# =========================================================
+
+derived_metrics:
+
+  # =======================================================
+  # SIP 1
+  #
+  # Final column:
+  # # Months Eligible
+  #
+  # Source:
+  # employee.sip_eligible_date
+  #
+  # Quarter and fiscal-year rules are read from parameters.
+  # =======================================================
+
+  # Computed from source data. May be overridden per-employee below via
+  # months_eligible_override (see precompute_exceptions admin UI).
+  months_eligible_computed:
+    enabled: true
+    publish: false
+
+    operation: months_eligible
+
+    input:
+      column: sip_eligible_date
+
+    null_result: 0
+
+
+  # -------------------------------------------------------
+  # Admin override lookup: complete override for
+  # "# Months Eligible", entered per-employee in the
+  # precompute exceptions admin UI. Left blank (null) for
+  # every employee without an override.
+  # -------------------------------------------------------
+
+  months_eligible_override:
+    enabled: true
+    publish: false
+    operation: lookup
+
+    dataset: precompute_exceptions
+    source_keys:
+      - employee_id
+    reference_keys:
+      - employee_id
+    value_column: months_eligible_override
+    cardinality: many_to_one
+    join_type: left
+
+
+  # Final published value: admin override wins when present,
+  # otherwise falls back to the computed value.
+  months_eligible:
+    enabled: true
+    publish: true
+
+    output_name: "# Months Eligible"
+    operation: if_else
+
+    depends_on:
+      - months_eligible_computed
+      - months_eligible_override
+
+    condition:
+      operator: not_null
+      left:
+        column: months_eligible_override
+
+    then:
+      column: months_eligible_override
+
+    else:
+      column: months_eligible_computed
+
+
+  # =======================================================
+  # SIP 2 INTERMEDIATE
+  #
+  # Annual salary in payroll currency × SIP target %
+  # =======================================================
+
+  annual_sip_target_pc:
+    enabled: true
+    publish: false
+
+    operation: multiply
+
+    inputs:
+      - column: annual_salary_payroll_currency
+      - column: sip_target_pct
+
+
+  # =======================================================
+  # SIP 2
+  #
+  # SIP Target (PC)
+  #
+  # annual_sip_target_pc
+  # × months_eligible
+  # ÷ annual_month_count
+  # =======================================================
+
+  sip_target_pc:
+    enabled: true
+    publish: true
+
+    output_name: "SIP Target (PC)"
+    operation: prorate
+
+    depends_on:
+      - annual_sip_target_pc
+      - months_eligible
+
+    inputs:
+      amount:
+        column: annual_sip_target_pc
+
+      eligible_units:
+        column: months_eligible
+
+      total_units:
+        parameter: annual_month_count
+        required: true
+
+    limit_factor: true
+
+
+  # =======================================================
+  # SIP 3
+  #
+  # SIP Target (USD)
+  #
+  # sip_target_pc ÷ payroll_fx_rate
+  # =======================================================
+
+  sip_target_usd:
+    enabled: true
+    publish: true
+
+    output_name: "SIP Target (USD)"
+    operation: divide
+
+    depends_on:
+      - sip_target_pc
+      - payroll_fx_rate
+
+    inputs:
+      numerator:
+        column: sip_target_pc
+
+      denominator:
+        column: payroll_fx_rate
+
+    zero_result: 0
+
+
+  # =======================================================
+  # SIP 4
+  #
+  # YTD Salary (Payroll Currency)
+  #
+  # annual_salary_payroll_currency
+  # × months_eligible
+  # ÷ annual_month_count
+  # =======================================================
+
+  ytd_salary_pc:
+    enabled: true
+    publish: true
+
+    output_name: "YTD Salary (Payroll Currency)"
+    operation: prorate
+
+    depends_on:
+      - months_eligible
+
+    inputs:
+      amount:
+        column: annual_salary_payroll_currency
+
+      eligible_units:
+        column: months_eligible
+
+      total_units:
+        parameter: annual_month_count
+        required: true
+
+    limit_factor: true
+
+
+  # =======================================================
+  # SIP 5
+  #
+  # YTD Salary (USD)
+  #
+  # annual_salary_usd
+  # × months_eligible
+  # ÷ annual_month_count
+  # =======================================================
+
+  ytd_salary_usd:
+    enabled: true
+    publish: true
+
+    output_name: "YTD Salary (USD)"
+    operation: prorate
+
+    depends_on:
+      - months_eligible
+
+    inputs:
+      amount:
+        column: annual_salary_usd
+
+      eligible_units:
+        column: months_eligible
+
+      total_units:
+        parameter: annual_month_count
+        required: true
+
+    limit_factor: true
+
+
+  # =======================================================
+  # SIP 6 INTERMEDIATE — Q2 candidate
+  #
+  # sip_target_pc × q2_max_sip_multiplier
+  # =======================================================
+
+  q2_max_sip_pc:
+    enabled: true
+    publish: false
+
+    operation: multiply
+
+    depends_on:
+      - sip_target_pc
+
+    inputs:
+      - column: sip_target_pc
+
+      - parameter: q2_max_sip_multiplier
+        required: true
+
+
+  # =======================================================
+  # SIP 6 INTERMEDIATE — Q3 candidate
+  #
+  # sip_target_pc × q3_max_sip_multiplier
+  # =======================================================
+
+  q3_max_sip_pc:
+    enabled: true
+    publish: false
+
+    operation: multiply
+
+    depends_on:
+      - sip_target_pc
+
+    inputs:
+      - column: sip_target_pc
+
+      - parameter: q3_max_sip_multiplier
+        required: true
+
+
+  # =======================================================
+  # SIP 6 INTERMEDIATE — Q4 high-target candidate
+  #
+  # sip_target_pc × q4_high_target_multiplier
+  # =======================================================
+
+  q4_high_target_max_sip_pc:
+    enabled: true
+    publish: false
+
+    operation: multiply
+
+    depends_on:
+      - sip_target_pc
+
+    inputs:
+      - column: sip_target_pc
+
+      - parameter: q4_high_target_multiplier
+        required: true
+
+
+  # =======================================================
+  # BP PLACEHOLDERS
+  # =======================================================
+
+  bp_sales_2026_shared:
+    enabled: true
+    publish: false
+
+    operation: constant
+
+    static_reference:
+      path: placeholders.bp_sales_2026_shared
+
+
+  bp_gp_2026_shared:
+    enabled: true
+    publish: false
+
+    operation: constant
+
+    static_reference:
+      path: placeholders.bp_gp_2026_shared
+
+
+  bp_rev_adjustments:
+    enabled: true
+    publish: true
+
+    output_name: "Target Exceptions (Revenue)"
+    operation: lookup
+
+    dataset: precompute_exceptions
+    source_keys:
+      - employee_id
+    reference_keys:
+      - employee_id
+    value_column: bp_rev_adjustments
+    cardinality: many_to_one
+    join_type: left
+    default: 0
+
+
+  bp_gp_adjustments:
+    enabled: true
+    publish: true
+
+    output_name: "Target Exceptions (GP/DOP)"
+    operation: lookup
+
+    dataset: precompute_exceptions
+    source_keys:
+      - employee_id
+    reference_keys:
+      - employee_id
+    value_column: bp_gp_adjustments
+    cardinality: many_to_one
+    join_type: left
+    default: 0
+
+
+  # -------------------------------------------------------
+  # Admin subtraction lookup: entered per-employee in the
+  # precompute exceptions admin UI. When populated, subtracted
+  # from bp_gp_dop_2026_direct ("Target GP/DOP DIRECT") before
+  # any other adjustments. Defaults to 0 (no effect).
+  # -------------------------------------------------------
+
+  bp_sga:
+    enabled: true
+    publish: true
+
+    output_name: "BP SG&A"
+    operation: lookup
+
+    dataset: precompute_exceptions
+    source_keys:
+      - employee_id
+    reference_keys:
+      - employee_id
+    value_column: bp_sga
+    cardinality: many_to_one
+    join_type: left
+    default: 0
+
+
+  bp_gp_dop_2026_direct_after_sga:
+    enabled: true
+    publish: false
+
+    operation: subtract
+
+    depends_on:
+      - bp_gp_dop_2026_direct
+      - bp_sga
+
+    inputs:
+      - column: bp_gp_dop_2026_direct
+      - column: bp_sga
+
+
+  # =======================================================
+  # BP FINAL INTERMEDIATE TOTALS
+  #
+  # Shared BP placeholders are retained for future use but
+  # are not currently included in these formulas.
+  # =======================================================
+
+  bp_sales_2026:
+    enabled: true
+    publish: false
+
+    operation: add
+
+    depends_on:
+      - bp_sales_2026_direct
+      - bp_rev_adjustments
+
+    inputs:
+      - column: bp_sales_2026_direct
+      - column: bp_rev_adjustments
+
+    null_as_zero: true
+
+
+  bp_gp_dop_2026:
+    enabled: true
+    publish: false
+
+    operation: add
+
+    depends_on:
+      - bp_gp_dop_2026_direct_after_sga
+      - bp_gp_adjustments
+
+    inputs:
+      - column: bp_gp_dop_2026_direct_after_sga
+      - column: bp_gp_adjustments
+
+    null_as_zero: true
+
+
+  # =======================================================
+  # QUARTER-PHASED TARGET CANDIDATES
+  # =======================================================
+
+  q2_target_revenue:
+    enabled: true
+    publish: false
+
+    operation: multiply
+
+    depends_on:
+      - bp_sales_2026
+
+    inputs:
+      - column: bp_sales_2026
+
+      - parameter: target_q2_multiplier
+        required: true
+
+
+  q3_target_revenue:
+    enabled: true
+    publish: false
+
+    operation: multiply
+
+    depends_on:
+      - bp_sales_2026
+
+    inputs:
+      - column: bp_sales_2026
+
+      - parameter: target_q3_multiplier
+        required: true
+
+
+  q4_target_revenue:
+    enabled: true
+    publish: false
+
+    operation: multiply
+
+    depends_on:
+      - bp_sales_2026
+
+    inputs:
+      - column: bp_sales_2026
+
+      - parameter: target_q4_multiplier
+        required: true
+
+
+  q2_target_gp_dop:
+    enabled: true
+    publish: false
+
+    operation: multiply
+
+    depends_on:
+      - bp_gp_dop_2026
+
+    inputs:
+      - column: bp_gp_dop_2026
+
+      - parameter: target_q2_multiplier
+        required: true
+
+
+  q3_target_gp_dop:
+    enabled: true
+    publish: false
+
+    operation: multiply
+
+    depends_on:
+      - bp_gp_dop_2026
+
+    inputs:
+      - column: bp_gp_dop_2026
+
+      - parameter: target_q3_multiplier
+        required: true
+
+
+  q4_target_gp_dop:
+    enabled: true
+    publish: false
+
+    operation: multiply
+
+    depends_on:
+      - bp_gp_dop_2026
+
+    inputs:
+      - column: bp_gp_dop_2026
+
+      - parameter: target_q4_multiplier
+        required: true
+
+
+  # =======================================================
+  # SIP 15
+  # =======================================================
+
+  rev_adjustments:
+    enabled: true
+    publish: true
+
+    output_name: "Approved Exceptions in Regional Currency (Revenue)"
+    operation: lookup
+
+    dataset: precompute_exceptions
+    source_keys:
+      - employee_id
+    reference_keys:
+      - employee_id
+    value_column: rev_adjustments
+    cardinality: many_to_one
+    join_type: left
+    default: 0
+
+
+  # =======================================================
+  # SIP 16
+  # =======================================================
+
+  gp_adjustments:
+    enabled: true
+    publish: true
+
+    output_name: "Approved Exceptions in Regional Currency (GP)"
+    operation: lookup
+
+    dataset: precompute_exceptions
+    source_keys:
+      - employee_id
+    reference_keys:
+      - employee_id
+    value_column: gp_adjustments
+    cardinality: many_to_one
+    join_type: left
+    default: 0
+
+
+  # -------------------------------------------------------
+  # Admin override lookup: complete override for
+  # "YTD Actual in Regional Currency (GP/DOP)", entered
+  # per-employee in the precompute exceptions admin UI.
+  # Left blank (null) for every employee without an override.
+  # -------------------------------------------------------
+
+  ytd_actual_gp_dop_override:
+    enabled: true
+    publish: false
+    operation: lookup
+
+    dataset: precompute_exceptions
+    source_keys:
+      - employee_id
+    reference_keys:
+      - employee_id
+    value_column: ytd_actual_gp_dop_override
+    cardinality: many_to_one
+    join_type: left
+
+
+  # Final published value: admin override wins when present,
+  # otherwise falls back to the computed value.
+  ytd_actual_gp_dop:
+    enabled: true
+    publish: true
+
+    output_name: "YTD Actual in Regional Currency (GP/DOP)"
+    operation: if_else
+
+    depends_on:
+      - ytd_actual_gp_dop_computed
+      - ytd_actual_gp_dop_override
+
+    condition:
+      operator: not_null
+      left:
+        column: ytd_actual_gp_dop_override
+
+    then:
+      column: ytd_actual_gp_dop_override
+
+    else:
+      column: ytd_actual_gp_dop_computed
+
+
+  # -------------------------------------------------------
+  # Admin subtraction lookup: entered per-employee in the
+  # precompute exceptions admin UI. When populated, subtracted
+  # from ytd_actual_gp_dop ("YTD Actual in Regional Currency
+  # (GP/DOP)") before any other adjustments. Defaults to 0
+  # (no effect).
+  # -------------------------------------------------------
+
+  ytd_sga:
+    enabled: true
+    publish: true
+
+    output_name: "YTD SG&A"
+    operation: lookup
+
+    dataset: precompute_exceptions
+    source_keys:
+      - employee_id
+    reference_keys:
+      - employee_id
+    value_column: ytd_sga
+    cardinality: many_to_one
+    join_type: left
+    default: 0
+
+
+  ytd_actual_gp_dop_after_sga:
+    enabled: true
+    publish: false
+
+    operation: subtract
+
+    depends_on:
+      - ytd_actual_gp_dop
+      - ytd_sga
+
+    inputs:
+      - column: ytd_actual_gp_dop
+      - column: ytd_sga
+
+
+  # -------------------------------------------------------
+  # Admin override lookup: complete override for
+  # "YTD Actual in Regional Currency (Revenue)", entered
+  # per-employee in the precompute exceptions admin UI.
+  # Left blank (null) for every employee without an override.
+  # -------------------------------------------------------
+
+  ytd_actual_revenue_override:
+    enabled: true
+    publish: false
+    operation: lookup
+
+    dataset: precompute_exceptions
+    source_keys:
+      - employee_id
+    reference_keys:
+      - employee_id
+    value_column: ytd_actual_revenue_override
+    cardinality: many_to_one
+    join_type: left
+
+
+  # Final published value: admin override wins when present,
+  # otherwise falls back to the computed value.
+  ytd_actual_revenue:
+    enabled: true
+    publish: true
+
+    output_name: "YTD Actual in Regional Currency (Revenue)"
+    operation: if_else
+
+    depends_on:
+      - ytd_actual_revenue_computed
+      - ytd_actual_revenue_override
+
+    condition:
+      operator: not_null
+      left:
+        column: ytd_actual_revenue_override
+
+    then:
+      column: ytd_actual_revenue_override
+
+    else:
+      column: ytd_actual_revenue_computed
+
+
+  # =======================================================
+  # SIP 18
+  #
+  # Direct revenue + shared revenue + adjustments
+  # =======================================================
+
+  final_ytd_actual_revenue:
+    enabled: true
+    publish: true
+
+    output_name: "Final YTD Actual in Regional Currency (Revenue)"
+    operation: add
+
+    depends_on:
+      - ytd_actual_revenue
+      - shared_accounts_revenue
+      - rev_adjustments
+
+    inputs:
+      - column: ytd_actual_revenue
+      - column: shared_accounts_revenue
+      - column: rev_adjustments
+
+    null_as_zero: true
+
+
+  # =======================================================
+  # Intermediate GP total before unallocated cost
+  # =======================================================
+
+  ytd_gp_before_unallocated_cost:
+    enabled: true
+    publish: false
+
+    operation: add
+
+    depends_on:
+      - ytd_actual_gp_dop_after_sga
+      - shared_accounts_gp
+      - gp_adjustments
+
+    inputs:
+      - column: ytd_actual_gp_dop_after_sga
+      - column: shared_accounts_gp
+      - column: gp_adjustments
+
+    null_as_zero: true
+
+
+  # =======================================================
+  # Intermediate Revenue minus GP
+  # =======================================================
+
+  revenue_gp_difference:
+    enabled: true
+    publish: false
+
+    operation: subtract
+
+    depends_on:
+      - final_ytd_actual_revenue
+      - ytd_gp_before_unallocated_cost
+
+    inputs:
+      - column: final_ytd_actual_revenue
+      - column: ytd_gp_before_unallocated_cost
+
+
+  # =======================================================
+  # SIP 17
+  #
+  # (Final revenue - GP before unallocated cost)
+  # × configured weight
+  # =======================================================
+
+  unallocated_cost:
+    enabled: true
+    publish: true
+
+    output_name: "Unallocated Cost"
+    operation: multiply
+
+    depends_on:
+      - revenue_gp_difference
+
+    inputs:
+      - column: revenue_gp_difference
+
+      - static_reference:
+          path: placeholders.unallocated_cost_weight
+
+
+  # =======================================================
+  # SIP 19
+  #
+  # GP before unallocated cost - unallocated cost
+  # =======================================================
+
+  final_ytd_actual_gp_dop:
+    enabled: true
+    publish: true
+
+    output_name: "Final YTD Actual in Regional Currency (GP/DOP)"
+    operation: subtract
+
+    depends_on:
+      - ytd_gp_before_unallocated_cost
+      - unallocated_cost
+
+    inputs:
+      - column: ytd_gp_before_unallocated_cost
+      - column: unallocated_cost
+
+  # =======================================================
+  # COMMISSION RATE INTERMEDIATES
+  #
+  # SIP Target USD phased for the selected quarter.
+  # =======================================================
+
+  q2_phased_sip_target_usd:
+    enabled: true
+    publish: false
+
+    operation: multiply
+
+    depends_on:
+      - sip_target_usd
+
+    inputs:
+      - column: sip_target_usd
+
+      - parameter: target_q2_multiplier
+        required: true
+
+
+  q3_phased_sip_target_usd:
+    enabled: true
+    publish: false
+
+    operation: multiply
+
+    depends_on:
+      - sip_target_usd
+
+    inputs:
+      - column: sip_target_usd
+
+      - parameter: target_q3_multiplier
+        required: true
+
+
+  q4_phased_sip_target_usd:
+    enabled: true
+    publish: false
+
+    operation: multiply
+
+    depends_on:
+      - sip_target_usd
+
+    inputs:
+      - column: sip_target_usd
+
+      - parameter: target_q4_multiplier
+        required: true
+
+  # =======================================================
+  # REVENUE RATE NUMERATORS
+  # =======================================================
+
+  base_rate_revenue_numerator:
+    enabled: true
+    publish: false
+
+    operation: multiply
+
+    depends_on:
+      - phased_sip_target_usd
+
+    inputs:
+      - column: phased_sip_target_usd
+
+      - parameter: revenue_incentive_weight
+        required: true
+
+      - parameter: base_band_weight
+        required: true
+
+
+  surge_rate_revenue_numerator:
+    enabled: true
+    publish: false
+
+    operation: multiply
+
+    depends_on:
+      - phased_sip_target_usd
+
+    inputs:
+      - column: phased_sip_target_usd
+
+      - parameter: revenue_incentive_weight
+        required: true
+
+      - parameter: surge_band_weight
+        required: true
+
+
+  base_rate_revenue_denominator:
+    enabled: true
+    publish: false
+
+    operation: multiply
+
+    depends_on:
+      - target_region_currency_revenue
+
+    inputs:
+      - column: target_region_currency_revenue
+
+      - parameter: base_achievement_band
+        required: true
+
+
+  surge_rate_revenue_denominator:
+    enabled: true
+    publish: false
+
+    operation: multiply
+
+    depends_on:
+      - target_region_currency_revenue
+
+    inputs:
+      - column: target_region_currency_revenue
+
+      - parameter: surge_achievement_band
+        required: true
+
+  # =======================================================
+  # GP/DOP RATE NUMERATORS
+  # =======================================================
+
+  base_rate_gp_dop_numerator:
+    enabled: true
+    publish: false
+
+    operation: multiply
+
+    depends_on:
+      - phased_sip_target_usd
+
+    inputs:
+      - column: phased_sip_target_usd
+
+      - parameter: gp_incentive_weight
+        required: true
+
+      - parameter: base_band_weight
+        required: true
+
+
+  surge_rate_gp_dop_numerator:
+    enabled: true
+    publish: false
+
+    operation: multiply
+
+    depends_on:
+      - phased_sip_target_usd
+
+    inputs:
+      - column: phased_sip_target_usd
+
+      - parameter: gp_incentive_weight
+        required: true
+
+      - parameter: surge_band_weight
+        required: true
+
+
+  base_rate_gp_dop_denominator:
+    enabled: true
+    publish: false
+
+    operation: multiply
+
+    depends_on:
+      - target_region_currency_gp_dop
+
+    inputs:
+      - column: target_region_currency_gp_dop
+
+      - parameter: base_achievement_band
+        required: true
+
+
+  surge_rate_gp_dop_denominator:
+    enabled: true
+    publish: false
+
+    operation: multiply
+
+    depends_on:
+      - target_region_currency_gp_dop
+
+    inputs:
+      - column: target_region_currency_gp_dop
+
+      - parameter: surge_achievement_band
+        required: true
+
+  # =======================================================
+  # SIP 28 — BASE COMMISSION REVENUE CANDIDATES
+  # =======================================================
+
+  base_commission_revenue_actual_candidate:
+    enabled: true
+    publish: false
+    operation: multiply
+
+    depends_on:
+      - final_ytd_actual_revenue
+      - base_rate_revenue
+
+    inputs:
+      - column: final_ytd_actual_revenue
+      - column: base_rate_revenue
+
+
+  base_commission_revenue_capped_candidate:
+    enabled: true
+    publish: false
+    operation: multiply
+
+    depends_on:
+      - target_region_currency_revenue
+      - base_rate_revenue
+
+    inputs:
+      - column: target_region_currency_revenue
+      - column: base_rate_revenue
+
+      - parameter: base_commission_threshold
+        required: true
+
+
+  # =======================================================
+  # SIP 29 — BASE COMMISSION GP CANDIDATES
+  # =======================================================
+
+  base_commission_gp_actual_candidate:
+    enabled: true
+    publish: false
+    operation: multiply
+
+    depends_on:
+      - final_ytd_actual_gp_dop
+      - base_rate_gp_dop
+
+    inputs:
+      - column: final_ytd_actual_gp_dop
+      - column: base_rate_gp_dop
+
+
+  base_commission_gp_capped_candidate:
+    enabled: true
+    publish: false
+    operation: multiply
+
+    depends_on:
+      - target_region_currency_gp_dop
+      - base_rate_gp_dop
+
+    inputs:
+      - column: target_region_currency_gp_dop
+      - column: base_rate_gp_dop
+
+      - parameter: base_commission_threshold
+        required: true
+
+
+  # =======================================================
+  # SIP 31
+  #
+  # % BP Met Revenue - 90%
+  # =======================================================
+
+  surge_bp_met_revenue_pct:
+    enabled: true
+    publish: true
+
+    output_name: "% of BP Met for Surge Revenue"
+    operation: subtract
+
+    depends_on:
+      - bp_met_revenue_pct
+
+    inputs:
+      - column: bp_met_revenue_pct
+
+      - parameter: base_commission_threshold
+        required: true
+
+
+  # =======================================================
+  # SIP 32
+  #
+  # % BP Met GP - 90%
+  # =======================================================
+
+  surge_bp_met_gp_pct:
+    enabled: true
+    publish: true
+
+    output_name: "% of BP Met for Surge GP"
+    operation: subtract
+
+    depends_on:
+      - bp_met_gp_pct
+
+    inputs:
+      - column: bp_met_gp_pct
+
+      - parameter: base_commission_threshold
+        required: true
+
+
+  # =======================================================
+  # SURGE ELIGIBLE PERCENTAGES
+  #
+  # Clamp the displayed SIP 31/32 values between:
+  # 0% and 10%
+  # =======================================================
+
+  eligible_surge_revenue_pct:
+    enabled: true
+    publish: false
+
+    operation: clamp
+
+    depends_on:
+      - surge_bp_met_revenue_pct
+
+    input:
+      column: surge_bp_met_revenue_pct
+
+    minimum:
+      value: 0
+
+    maximum:
+      parameter: surge_commission_cap
+      required: true
+
+
+  eligible_surge_gp_pct:
+    enabled: true
+    publish: false
+
+    operation: clamp
+
+    depends_on:
+      - surge_bp_met_gp_pct
+
+    input:
+      column: surge_bp_met_gp_pct
+
+    minimum:
+      value: 0
+
+    maximum:
+      parameter: surge_commission_cap
+      required: true
+
+
+  # =======================================================
+  # SIP 33
+  # =======================================================
+
+  surge_commission_revenue:
+    enabled: true
+    publish: true
+
+    output_name: "Surge Commission Earned Revenue"
+    operation: multiply
+
+    depends_on:
+      - target_region_currency_revenue
+      - surge_rate_revenue
+      - eligible_surge_revenue_pct
+
+    inputs:
+      - column: target_region_currency_revenue
+      - column: surge_rate_revenue
+      - column: eligible_surge_revenue_pct
+
+
+  # =======================================================
+  # SIP 34
+  # =======================================================
+
+  surge_commission_gp:
+    enabled: true
+    publish: true
+
+    output_name: "Surge Commission Earned GP"
+    operation: multiply
+
+    depends_on:
+      - target_region_currency_gp_dop
+      - surge_rate_gp_dop
+      - eligible_surge_gp_pct
+
+    inputs:
+      - column: target_region_currency_gp_dop
+      - column: surge_rate_gp_dop
+      - column: eligible_surge_gp_pct
+
+
+  # =======================================================
+  # SIP 36
+  #
+  # % BP Met Revenue - 100%
+  # =======================================================
+
+  special_surge_bp_met_revenue_pct:
+    enabled: true
+    publish: true
+
+    output_name: "% BP Met for Spl Surge (Rev)"
+    operation: subtract
+
+    depends_on:
+      - bp_met_revenue_pct
+
+    inputs:
+      - column: bp_met_revenue_pct
+
+      - parameter: special_surge_threshold
+        required: true
+
+
+  # =======================================================
+  # SIP 37
+  #
+  # % BP Met GP - 100%
+  # =======================================================
+
+  special_surge_bp_met_gp_pct:
+    enabled: true
+    publish: true
+
+    output_name: "% BP Met for Spl Surge (Surge %) (GP)"
+    operation: subtract
+
+    depends_on:
+      - bp_met_gp_pct
+
+    inputs:
+      - column: bp_met_gp_pct
+
+      - parameter: special_surge_threshold
+        required: true
+
+
+  # =======================================================
+  # Special-surge percentage cannot fall below zero when
+  # calculating commission.
+  # =======================================================
+
+  eligible_special_surge_revenue_pct:
+    enabled: true
+    publish: false
+
+    operation: floor
+
+    depends_on:
+      - special_surge_bp_met_revenue_pct
+
+    input:
+      column: special_surge_bp_met_revenue_pct
+
+    floor:
+      value: 0
+
+
+  eligible_special_surge_gp_pct:
+    enabled: true
+    publish: false
+
+    operation: floor
+
+    depends_on:
+      - special_surge_bp_met_gp_pct
+
+    input:
+      column: special_surge_bp_met_gp_pct
+
+    floor:
+      value: 0
+
+
+  # =======================================================
+  # SIP 38
+  # =======================================================
+
+  special_surge_commission_revenue:
+    enabled: true
+    publish: true
+
+    output_name: "Spl Surge Commission Earned Rev"
+    operation: multiply
+
+    depends_on:
+      - target_region_currency_revenue
+      - eligible_special_surge_revenue_pct
+      - special_surge_rate_revenue
+
+    inputs:
+      - column: target_region_currency_revenue
+      - column: eligible_special_surge_revenue_pct
+      - column: special_surge_rate_revenue
+
+
+  # =======================================================
+  # SIP 39
+  # =======================================================
+
+  special_surge_commission_gp:
+    enabled: true
+    publish: true
+
+    output_name: "Spl Surge Commission Earned GP"
+    operation: multiply
+
+    depends_on:
+      - target_region_currency_gp_dop
+      - eligible_special_surge_gp_pct
+      - special_surge_rate_gp_dop
+
+    inputs:
+      - column: target_region_currency_gp_dop
+      - column: eligible_special_surge_gp_pct
+      - column: special_surge_rate_gp_dop
+
+
+  # =======================================================
+  # SIP 43 INTERMEDIATE
+  # =======================================================
+
+  candidate_ytd_sip_earned:
+    enabled: true
+    publish: false
+
+    operation: add
+
+    depends_on:
+      - sip_earned_revenue
+      - sip_earned_gp
+
+    inputs:
+      - column: sip_earned_revenue
+      - column: sip_earned_gp
+
+    null_as_zero: true
+
+
+  # =======================================================
+  # SIP 48
+  # =======================================================
+
+  q2_payment_payroll_currency:
+    enabled: true
+    publish: true
+
+    output_name: "Q2 Payment (Payroll Currency)"
+
+    operation: constant
+
+    value: 0
+
+
+  # =======================================================
+  # SIP 49
+  # =======================================================
+
+  q3_payment_payroll_currency:
+    enabled: true
+    publish: true
+
+    output_name: "Q3 Payment (Payroll Currency)"
+
+    operation: constant
+
+    value: 0
+
+
+  # =======================================================
+  # SIP 50
+  # =======================================================
+
+  crossed_gtee_payment_region_currency:
+    enabled: true
+    publish: true
+
+    output_name: "Crossed Gtee Payment (Region Currency)"
+
+    operation: constant
+
+    value: 0
+
+
+  # =======================================================
+  # SIP 51
+  # =======================================================
+
+  q1_payment_region_currency:
+    enabled: true
+    publish: true
+
+    output_name: "Q1 Payment (Region Currency)"
+    operation: divide
+
+    depends_on:
+      - q1_payment_payroll_currency
+      - payroll_fx_rate
+
+    inputs:
+      numerator:
+        column: q1_payment_payroll_currency
+
+      denominator:
+        column: payroll_fx_rate
+
+    zero_result: 0
+
+
+  # =======================================================
+  # SIP 52
+  # =======================================================
+
+  q2_payment_region_currency:
+    enabled: true
+    publish: true
+
+    output_name: "Q2 Payment (Region Currency)"
+
+    operation: constant
+
+    value: 0
+
+
+  # =======================================================
+  # SIP 53
+  # =======================================================
+
+  q3_payment_region_currency:
+    enabled: true
+    publish: true
+
+    output_name: "Q3 Payment (Region Currency)"
+
+    operation: constant
+
+    value: 0
+
+
+  # =======================================================
+  # SIP 54
+  # =======================================================
+
+  overpayment:
+    enabled: true
+    publish: true
+
+    output_name: "Overpayment"
+    operation: overpayment
+
+    depends_on:
+      - ytd_sip_earned
+      - q1_payment_region_currency
+      - q2_payment_region_currency
+      - q3_payment_region_currency
+      - guarantee_sip_q2
+      - crossed_gtee_payment_region_currency
+
+    inputs:
+      ytd_sip_earned:
+        column: ytd_sip_earned
+
+      q1_payment_region_currency:
+        column: q1_payment_region_currency
+
+      q2_payment_region_currency:
+        column: q2_payment_region_currency
+
+      q3_payment_region_currency:
+        column: q3_payment_region_currency
+
+      guarantee_sip_q2:
+        column: guarantee_sip_q2
+
+      crossed_gtee_payment_region_currency:
+        column: crossed_gtee_payment_region_currency
+
+
+  # =======================================================
+  # SIP 55
+  # =======================================================
+
+  overpayment_payroll_currency:
+    enabled: true
+    publish: true
+
+    output_name: "Overpayment (Payroll Currency)"
+
+    operation: multiply
+
+    depends_on:
+      - overpayment
+      - payroll_fx_rate
+
+    inputs:
+      - column: overpayment
+      - column: payroll_fx_rate
+
+
+  # =======================================================
+  # SIP 56
+  # =======================================================
+
+  nacs_region_currency:
+    enabled: true
+    publish: true
+
+    output_name: "NACS Region Currency"
+    operation: nacs_region_currency
+
+    depends_on:
+      - ytd_sip_earned
+      - crossed_gtee_payment_region_currency
+      - overpayment
+      - q1_payment_region_currency
+      - q2_payment_region_currency
+      - q3_payment_region_currency
+      - guarantee_sip_q2
+      - guarantee_eligibility_fy26_months
+
+    inputs:
+      ytd_sip_earned:
+        column: ytd_sip_earned
+
+      crossed_gtee_payment_region_currency:
+        column: crossed_gtee_payment_region_currency
+
+      overpayment:
+        column: overpayment
+
+      q1_payment_region_currency:
+        column: q1_payment_region_currency
+
+      q2_payment_region_currency:
+        column: q2_payment_region_currency
+
+      q3_payment_region_currency:
+        column: q3_payment_region_currency
+
+      guarantee_sip_q2:
+        column: guarantee_sip_q2
+
+      guarantee_eligibility_fy26_months:
+        column: guarantee_eligibility_fy26_months
+
+
+  # =======================================================
+  # SIP 58
+  # =======================================================
+
+  nacs_payroll_currency:
+    enabled: true
+    publish: true
+
+    output_name: "NACS Payroll Currency"
+
+    operation: multiply
+
+    depends_on:
+      - nacs_region_currency
+      - payroll_fx_rate
+
+    inputs:
+      - column: nacs_region_currency
+      - column: payroll_fx_rate
+
+
+  # =======================================================
+  # SIP 59
+  # =======================================================
+
+  nacs_usd_cc:
+    enabled: true
+    publish: true
+
+    output_name: "USD (@CC)"
+
+    operation: divide
+
+    depends_on:
+      - nacs_payroll_currency
+      - payroll_fx_rate
+
+    inputs:
+      numerator:
+        column: nacs_payroll_currency
+      denominator:
+        column: payroll_fx_rate
+
+    zero_result: 0
+
+
+# =========================================================
+# STAGE 4 — RULE METRICS
+# =========================================================
+
+rule_metrics:
+
+  # =======================================================
+  # SIP 6
+  #
+  # Max SIP (PC)
+  #
+  # Q2:
+  #   SIP Target (PC) × 0.50
+  #
+  # Q3:
+  #   SIP Target (PC) × 0.75
+  #
+  # Q4 and SIP Target % > 33%:
+  #   SIP Target (PC) × 3.00
+  #
+  # Q4 and SIP Target % <= 33%:
+  #   YTD Salary (Payroll Currency)
+  #
+  # Anything else:
+  #   0
+  # =======================================================
+
+  max_sip_pc:
+    enabled: true
+    publish: true
+
+    output_name: "Max SIP (PC)"
+    operation: case_when
+
+    depends_on:
+      - sip_target_pc
+      - ytd_salary_pc
+      - q2_max_sip_pc
+      - q3_max_sip_pc
+      - q4_high_target_max_sip_pc
+
+    cases:
+
+      # Q2
+      - when:
+          left:
+            parameter: quarter
+            required: true
+
+          operator: equals
+
+          right:
+            value: "Q2"
+
+        then:
+          column: q2_max_sip_pc
+
+
+      # Q3
+      - when:
+          left:
+            parameter: quarter
+            required: true
+
+          operator: equals
+
+          right:
+            value: "Q3"
+
+        then:
+          column: q3_max_sip_pc
+
+
+      # Q4 with target percentage above 33%
+      - when:
+          all:
+
+            - left:
+                parameter: quarter
+                required: true
+
+              operator: equals
+
+              right:
+                value: "Q4"
+
+            - left:
+                column: sip_target_pct
+
+              operator: greater_than
+
+              right:
+                parameter: q4_high_target_threshold
+                required: true
+
+        then:
+          column: q4_high_target_max_sip_pc
+
+
+      # Remaining Q4 employees
+      - when:
+          left:
+            parameter: quarter
+            required: true
+
+          operator: equals
+
+          right:
+            value: "Q4"
+
+        then:
+          column: ytd_salary_pc
+
+    default:
+      value: 0
+
+  # =======================================================
+  # SIP 9
+  # =======================================================
+
+  target_region_currency_revenue:
+    enabled: true
+    publish: true
+
+    output_name: "Target in Region Currency (Revenue)"
+    operation: case_when
+
+    depends_on:
+      - q2_target_revenue
+      - q3_target_revenue
+      - q4_target_revenue
+
+    cases:
+
+      - when:
+          left:
+            parameter: quarter
+            required: true
+
+          operator: equals
+
+          right:
+            value: "Q2"
+
+        then:
+          column: q2_target_revenue
+
+
+      - when:
+          left:
+            parameter: quarter
+            required: true
+
+          operator: equals
+
+          right:
+            value: "Q3"
+
+        then:
+          column: q3_target_revenue
+
+
+      - when:
+          left:
+            parameter: quarter
+            required: true
+
+          operator: equals
+
+          right:
+            value: "Q4"
+
+        then:
+          column: q4_target_revenue
+
+    default:
+      value: 0
+
+
+  # =======================================================
+  # SIP 10
+  # =======================================================
+
+  target_region_currency_gp_dop:
+    enabled: true
+    publish: true
+
+    output_name: "Target in Region Currency (GP/DOP)"
+    operation: case_when
+
+    depends_on:
+      - q2_target_gp_dop
+      - q3_target_gp_dop
+      - q4_target_gp_dop
+
+    cases:
+
+      - when:
+          left:
+            parameter: quarter
+            required: true
+
+          operator: equals
+
+          right:
+            value: "Q2"
+
+        then:
+          column: q2_target_gp_dop
+
+
+      - when:
+          left:
+            parameter: quarter
+            required: true
+
+          operator: equals
+
+          right:
+            value: "Q3"
+
+        then:
+          column: q3_target_gp_dop
+
+
+      - when:
+          left:
+            parameter: quarter
+            required: true
+
+          operator: equals
+
+          right:
+            value: "Q4"
+
+        then:
+          column: q4_target_gp_dop
+
+    default:
+      value: 0
+
+  phased_sip_target_usd:
+    enabled: true
+    publish: false
+
+    operation: case_when
+
+    depends_on:
+      - q2_phased_sip_target_usd
+      - q3_phased_sip_target_usd
+      - q4_phased_sip_target_usd
+
+    cases:
+
+      - when:
+          left:
+            parameter: quarter
+            required: true
+
+          operator: equals
+
+          right:
+            value: "Q2"
+
+        then:
+          column: q2_phased_sip_target_usd
+
+
+      - when:
+          left:
+            parameter: quarter
+            required: true
+
+          operator: equals
+
+          right:
+            value: "Q3"
+
+        then:
+          column: q3_phased_sip_target_usd
+
+
+      - when:
+          left:
+            parameter: quarter
+            required: true
+
+          operator: equals
+
+          right:
+            value: "Q4"
+
+        then:
+          column: q4_phased_sip_target_usd
+
+    default:
+      value: 0
+
+
+  special_surge_rate_revenue:
+    enabled: true
+    publish: true
+
+    output_name: "Spl Surge Rate Revenue"
+    operation: case_when
+
+    depends_on:
+      - months_eligible
+      - surge_rate_revenue
+
+    cases:
+
+      - when:
+          left:
+            column: months_eligible
+
+          operator: equals
+
+          right:
+            value: 0
+
+        then:
+          value: 0
+
+
+      - when:
+          left:
+            column: surge_rate_revenue
+
+          operator: greater_than
+
+          right:
+            parameter: special_surge_revenue_cap
+            required: true
+
+        then:
+          parameter: special_surge_revenue_cap
+          required: true
+
+    default:
+      column: surge_rate_revenue
+
+  special_surge_rate_gp_dop:
+    enabled: true
+    publish: true
+
+    output_name: "Spl Surge Rate GP/DOP"
+    operation: case_when
+
+    depends_on:
+      - months_eligible
+      - surge_rate_gp_dop
+
+    cases:
+
+      - when:
+          left:
+            column: months_eligible
+
+          operator: equals
+
+          right:
+            value: 0
+
+        then:
+          value: 0
+
+
+      - when:
+          left:
+            column: surge_rate_gp_dop
+
+          operator: greater_than
+
+          right:
+            parameter: special_surge_gp_cap
+            required: true
+
+        then:
+          parameter: special_surge_gp_cap
+          required: true
+
+
+      - when:
+          left:
+            column: surge_rate_gp_dop
+
+          operator: less_than
+
+          right:
+            parameter: special_surge_gp_floor
+            required: true
+
+        then:
+          parameter: special_surge_gp_floor
+          required: true
+
+    default:
+      column: surge_rate_gp_dop
+
+  # =======================================================
+  # SIP 28
+  # =======================================================
+
+  base_commission_revenue:
+    enabled: true
+    publish: true
+
+    output_name: "Base Commission Earned Revenue"
+    operation: case_when
+
+    depends_on:
+      - bp_met_revenue_pct
+      - base_commission_revenue_actual_candidate
+      - base_commission_revenue_capped_candidate
+
+    cases:
+
+      - when:
+          left:
+            column: bp_met_revenue_pct
+
+          operator: less_than_or_equal
+
+          right:
+            parameter: base_commission_threshold
+            required: true
+
+        then:
+          column: base_commission_revenue_actual_candidate
+
+    default:
+      column: base_commission_revenue_capped_candidate
+
+
+  # =======================================================
+  # SIP 29
+  # =======================================================
+
+  base_commission_gp:
+    enabled: true
+    publish: true
+
+    output_name: "Base Commission Earned GP"
+    operation: case_when
+
+    depends_on:
+      - bp_met_gp_pct
+      - base_commission_gp_actual_candidate
+      - base_commission_gp_capped_candidate
+
+    cases:
+
+      - when:
+          left:
+            column: bp_met_gp_pct
+
+          operator: less_than_or_equal
+
+          right:
+            parameter: base_commission_threshold
+            required: true
+
+        then:
+          column: base_commission_gp_actual_candidate
+
+    default:
+      column: base_commission_gp_capped_candidate
+
+
+  # =======================================================
+  # SIP 45
+  # =======================================================
+
+  sip_cap_flag:
+    enabled: true
+    publish: true
+
+    output_name: "Flag"
+    operation: case_when
+
+    depends_on:
+      - months_eligible
+      - ytd_sip_earned
+      - max_sip_usd
+
+    cases:
+
+      - when:
+          left:
+            column: months_eligible
+
+          operator: equals
+
+          right:
+            value: 0
+
+        then:
+          static_reference:
+            path: flags.ok
+
+
+      - when:
+          left:
+            column: ytd_sip_earned
+
+          operator: less_than
+
+          right:
+            column: max_sip_usd
+
+        then:
+          static_reference:
+            path: flags.ok
+
+    default:
+      static_reference:
+        path: flags.crossed_cap
+
+# =========================================================
+# FINAL CALCULATIONS
+# =========================================================
+
+calculations:
+
+  # =======================================================
+  # SIP 7
+  #
+  # Max SIP (USD)
+  #
+  # max_sip_pc ÷ payroll_fx_rate
+  # =======================================================
+
+  max_sip_usd:
+    enabled: true
+    publish: true
+
+    output_name: "Max SIP (USD)"
+    operation: divide
+
+    depends_on:
+      - max_sip_pc
+      - payroll_fx_rate
+
+    inputs:
+      numerator:
+        column: max_sip_pc
+
+      denominator:
+        column: payroll_fx_rate
+
+    zero_result: 0
+
+  # =======================================================
+  # SIP 20
+  # =======================================================
+
+  bp_met_revenue_pct:
+    enabled: true
+    publish: true
+
+    output_name: "% BP Met Revenue"
+    operation: divide
+
+    depends_on:
+      - final_ytd_actual_revenue
+      - target_region_currency_revenue
+
+    inputs:
+      numerator:
+        column: final_ytd_actual_revenue
+
+      denominator:
+        column: target_region_currency_revenue
+
+    zero_result: 0
+
+
+  # =======================================================
+  # SIP 21
+  # =======================================================
+
+  bp_met_gp_pct:
+    enabled: true
+    publish: true
+
+    output_name: "% BP Met GP"
+    operation: divide
+
+    depends_on:
+      - final_ytd_actual_gp_dop
+      - target_region_currency_gp_dop
+
+    inputs:
+      numerator:
+        column: final_ytd_actual_gp_dop
+
+      denominator:
+        column: target_region_currency_gp_dop
+
+    zero_result: 0
+
+
+  # =======================================================
+  # SIP 8
+  #
+  # Region Currency
+  #
+  # Temporary finance-controlled placeholder.
+  # =======================================================
+
+  region_currency:
+    enabled: true
+    publish: true
+
+    output_name: "Region Currency"
+    operation: constant
+
+    static_reference:
+      path: region_currency.default
+
+  base_rate_revenue:
+    enabled: true
+    publish: true
+
+    output_name: "Base Rate Revenue"
+    operation: divide
+
+    depends_on:
+      - base_rate_revenue_numerator
+      - base_rate_revenue_denominator
+
+    inputs:
+      numerator:
+        column: base_rate_revenue_numerator
+
+      denominator:
+        column: base_rate_revenue_denominator
+
+    zero_result: 0    
+
+  surge_rate_revenue:
+    enabled: true
+    publish: true
+
+    output_name: "Surge Rate Revenue"
+    operation: divide
+
+    depends_on:
+      - surge_rate_revenue_numerator
+      - surge_rate_revenue_denominator
+
+    inputs:
+      numerator:
+        column: surge_rate_revenue_numerator
+
+      denominator:
+        column: surge_rate_revenue_denominator
+
+    zero_result: 0   
+
+  base_rate_gp_dop:
+    enabled: true
+    publish: true
+
+    output_name: "Base Rate GP/DOP"
+    operation: divide
+
+    depends_on:
+      - base_rate_gp_dop_numerator
+      - base_rate_gp_dop_denominator
+
+    inputs:
+      numerator:
+        column: base_rate_gp_dop_numerator
+
+      denominator:
+        column: base_rate_gp_dop_denominator
+
+    zero_result: 0    
+
+  surge_rate_gp_dop:
+    enabled: true
+    publish: true
+
+    output_name: "Surge Rate GP/DOP"
+    operation: divide
+
+    depends_on:
+      - surge_rate_gp_dop_numerator
+      - surge_rate_gp_dop_denominator
+
+    inputs:
+      numerator:
+        column: surge_rate_gp_dop_numerator
+
+      denominator:
+        column: surge_rate_gp_dop_denominator
+
+    zero_result: 0  
+
+  # =======================================================
+  # SIP 30
+  # =======================================================
+
+  total_base_commission:
+    enabled: true
+    publish: true
+
+    output_name: "Total Base Commission Earned"
+    operation: add
+
+    depends_on:
+      - base_commission_revenue
+      - base_commission_gp
+
+    inputs:
+      - column: base_commission_revenue
+      - column: base_commission_gp
+
+    null_as_zero: true
+
+
+  # =======================================================
+  # SIP 35
+  # =======================================================
+
+  total_surge_commission:
+    enabled: true
+    publish: true
+
+    output_name: "Total Surge Commission Earned"
+    operation: add
+
+    depends_on:
+      - surge_commission_revenue
+      - surge_commission_gp
+
+    inputs:
+      - column: surge_commission_revenue
+      - column: surge_commission_gp
+
+    null_as_zero: true
+
+
+  # =======================================================
+  # SIP 40
+  # =======================================================
+
+  total_special_surge_commission:
+    enabled: true
+    publish: true
+
+    output_name: "Total Spl Surge Commission Earned"
+    operation: add
+
+    depends_on:
+      - special_surge_commission_revenue
+      - special_surge_commission_gp
+
+    inputs:
+      - column: special_surge_commission_revenue
+      - column: special_surge_commission_gp
+
+    null_as_zero: true
+
+
+  # =======================================================
+  # SIP 41
+  # =======================================================
+
+  sip_earned_revenue:
+    enabled: true
+    publish: true
+
+    output_name: "SIP Earned on Revenue"
+    operation: add
+
+    depends_on:
+      - base_commission_revenue
+      - surge_commission_revenue
+      - special_surge_commission_revenue
+
+    inputs:
+      - column: base_commission_revenue
+      - column: surge_commission_revenue
+      - column: special_surge_commission_revenue
+
+    null_as_zero: true
+
+
+  # =======================================================
+  # SIP 42
+  # =======================================================
+
+  sip_earned_gp:
+    enabled: true
+    publish: true
+
+    output_name: "SIP Earned on GP"
+    operation: add
+
+    depends_on:
+      - base_commission_gp
+      - surge_commission_gp
+      - special_surge_commission_gp
+
+    inputs:
+      - column: base_commission_gp
+      - column: surge_commission_gp
+      - column: special_surge_commission_gp
+
+    null_as_zero: true
+
+
+  # =======================================================
+  # SIP 43
+  #
+  # Minimum of:
+  # - calculated earned SIP
+  # - Max SIP USD
+  # =======================================================
+
+  ytd_sip_earned:
+    enabled: true
+    publish: true
+
+    output_name: "YTD SIP Earned"
+    operation: minimum
+
+    depends_on:
+      - candidate_ytd_sip_earned
+      - max_sip_usd
+
+    inputs:
+      - column: candidate_ytd_sip_earned
+      - column: max_sip_usd
+
+    skip_nulls: false
+
+
+  # =======================================================
+  # SIP 44
+  #
+  # USD amount × payroll FX rate
+  # =======================================================
+
+  ytd_sip_earned_payroll_currency:
+    enabled: true
+    publish: true
+
+    output_name: "YTD SIP Earned (Payroll Cur.)"
+    operation: multiply
+
+    depends_on:
+      - ytd_sip_earned
+      - payroll_fx_rate
+
+    inputs:
+      - column: ytd_sip_earned
+      - column: payroll_fx_rate         

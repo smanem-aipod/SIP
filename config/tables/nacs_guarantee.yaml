@@ -1,0 +1,885 @@
+table:
+  logical_name: nacs_guarantee
+
+  raw_target:
+    layer: raw
+    object: nacs_guarantee
+
+  canonical_target:
+    layer: canonical
+    object: nacs_guarantee
+
+  canonical_dependencies: []
+
+
+# =========================================================
+# EXCEL → RAW.NACS_GUARANTEE
+# =========================================================
+
+source_to_raw:
+  mappings:
+
+    employee_id:
+      aliases:
+        - Employee ID
+        - Employee Id
+        - Employee Number
+        - Emp ID
+      required: true
+
+    preferred_name:
+      aliases:
+        - Full Name
+        - Preferred Name
+        - Employee Name
+        - Name
+      required: false
+
+    job_profile:
+      aliases:
+        - Job Profile
+        - Position
+      required: false
+
+    region:
+      aliases:
+        - Region
+        - REGION
+      required: false
+
+    bu:
+      aliases:
+        - Department (Business Unit Level 2)
+        - Department
+        - Business Unit
+        - Bus. U
+        - BU
+      required: false
+
+    country:
+      aliases:
+        - Country
+      required: false
+
+    employee_type:
+      aliases:
+        - Employee Type
+      required: false
+
+    time_type:
+      aliases:
+        - Time Type
+      required: false
+
+    cost_center_id:
+      aliases:
+        - Cost Center ID
+        - Cost Center Id
+      required: false
+
+    cost_center_name:
+      aliases:
+        - Cost Center name
+        - Cost Center Name
+      required: false
+
+    active_flag:
+      aliases:
+        - Active (Yes/No)
+        - Active
+        - Active Flag
+      required: false
+
+    total_base_payroll_currency:
+      aliases:
+        - Total Base Pay - Amount (Payroll Currency)
+        - Total Base Pay Amount (Payroll Currency)
+        - Annual Salary (Payroll Currency)
+      required: false
+
+    payroll_currency:
+      aliases:
+        - Payroll Currency
+        - Currency Code
+        - Currency
+      required: true
+
+    sip_target_pct:
+      aliases:
+        - SIP Target Percent
+        - SIP Target %
+        - SIP Target Percentage
+      required: false
+
+    hire_date:
+      aliases:
+        - Hire Date
+        - Original Hire Date
+      required: false
+
+    fy25_q1:
+      aliases:
+        - FY25 Q1
+        - FY25Q1
+        - FY25 Q1 Payment
+      required: false
+
+    fy25_q2:
+      aliases:
+        - FY25 Q2
+        - FY25Q2
+        - FY25 Q2 Payment
+      required: false
+
+    fy25_q3:
+      aliases:
+        - FY25 Q3
+        - FY25Q3
+        - FY25 Q3 Payment
+      required: false
+
+    fy25_q4:
+      aliases:
+        - FY25 Q4
+        - FY25Q4
+        - FY25 Q4 Payment
+      required: false
+
+    comments:
+      aliases:
+        - Comments
+        - Comments, If any
+        - Comment
+      required: false
+
+  exclude_unmapped_columns: true
+
+
+# =========================================================
+# RAW.NACS_GUARANTEE → CANONICAL.NACS_GUARANTEE
+# =========================================================
+
+raw_to_canonical:
+  direct_mappings:
+    employee_id: employee_id
+    preferred_name: preferred_name
+    job_profile: job_profile
+    region: region
+    bu: bu
+    country: country
+    employee_type: employee_type
+    time_type: time_type
+    cost_center_id: cost_center_id
+    cost_center_name: cost_center_name
+    active_flag: active_flag
+    total_base_payroll_currency: total_base_payroll_currency
+    payroll_currency: payroll_currency
+    sip_target_pct: sip_target_pct
+    hire_date: hire_date
+    fy25_q1: fy25_q1
+    fy25_q2: fy25_q2
+    fy25_q3: fy25_q3
+    fy25_q4: fy25_q4
+    comments: comments
+    created_at: created_at
+
+
+# =========================================================
+# CHANGEABLE NACS PARAMETERS
+# =========================================================
+
+parameters:
+  quarter: "Q2"
+
+  annual_month_count: 12
+  guarantee_duration_days: 365
+  quarter_month_limit: 3
+
+  fy25_cutoff_dates:
+    month_12: "2024-10-05"
+    month_11: "2024-11-05"
+    month_10: "2024-12-05"
+    month_9: "2025-01-05"
+    month_8: "2025-02-05"
+    month_7: "2025-03-05"
+    month_6: "2025-04-05"
+    month_5: "2025-05-05"
+    month_4: "2025-06-05"
+    month_3: "2025-07-05"
+    month_2: "2025-08-05"
+    month_1: "2025-09-05"
+
+  fy26_cutoff_dates:
+    month_12: "2025-10-05"
+    month_11: "2025-11-05"
+    month_10: "2025-12-05"
+    month_9: "2026-01-05"
+    month_8: "2026-02-05"
+    month_7: "2026-03-05"
+    month_6: "2026-04-05"
+    month_5: "2026-05-05"
+    month_4: "2026-06-05"
+    month_3: "2026-07-05"
+    month_2: "2026-08-05"
+    month_1: "2026-09-05"
+
+  eligibility_check_dates:
+    Q1: "2025-12-05"
+    Q2: "2026-03-05"
+    Q3: "2026-06-05"
+    Q4: "2026-09-05"
+
+
+# =========================================================
+# CLEANING
+# =========================================================
+
+cleaning:
+  trim_strings: true
+  collapse_internal_whitespace: true
+  normalize_empty_strings: true
+
+  null_markers:
+    - ""
+    - "#N/A"
+    - "N/A"
+    - "NA"
+    - "null"
+    - "None"
+    - "-"
+
+  uppercase:
+    - region
+    - bu
+    - payroll_currency
+
+  value_mappings:
+    active_flag:
+      "Yes": "Yes"
+      "YES": "Yes"
+      "Y": "Yes"
+      "Active": "Yes"
+      "true": "Yes"
+      "1": "Yes"
+
+      "No": "No"
+      "NO": "No"
+      "N": "No"
+      "Inactive": "No"
+      "false": "No"
+      "0": "No"
+
+
+# =========================================================
+# CANONICAL DATATYPES
+# =========================================================
+
+columns:
+
+  employee_id:
+    type: string
+    nullable: false
+    max_length: 20
+
+  preferred_name:
+    type: string
+    nullable: true
+    max_length: 200
+
+  job_profile:
+    type: string
+    nullable: true
+    max_length: 100
+
+  region:
+    type: string
+    nullable: true
+    max_length: 50
+
+  bu:
+    type: string
+    nullable: true
+    max_length: 50
+
+  country:
+    type: string
+    nullable: true
+    max_length: 50
+
+  employee_type:
+    type: string
+    nullable: true
+    max_length: 50
+
+  time_type:
+    type: string
+    nullable: true
+    max_length: 50
+
+  cost_center_id:
+    type: string
+    nullable: true
+    max_length: 50
+
+  cost_center_name:
+    type: string
+    nullable: true
+    max_length: 200
+
+  active_flag:
+    type: string
+    nullable: true
+    max_length: 10
+
+  payroll_currency:
+    type: currency_code
+    nullable: false
+
+  total_base_payroll_currency:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  sip_target_pct:
+    type: percentage
+    nullable: true
+    precision: 7
+    scale: 4
+
+  hire_date:
+    type: date
+    nullable: true
+    day_first: true
+
+  fy25_q1:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  fy25_q2:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  fy25_q3:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  fy25_q4:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  comments:
+    type: string
+    nullable: true
+    max_length: 500
+
+  sip_target:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  guarantee_eligibility_fy25_months:
+    type: integer
+    nullable: true
+
+  payment_in_fy25:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  carry_forward_payable_fy26:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  guarantee_eligibility_fy26_months:
+    type: integer
+    nullable: true
+
+  guarantee_eligibility_fy26_q1_months:
+    type: integer
+    nullable: true
+
+  guarantee_eligibility_fy26_q2_months:
+    type: integer
+    nullable: true
+
+  guarantee_eligibility_fy26_q3_months:
+    type: integer
+    nullable: true
+
+  guarantee_eligibility_fy26_q4_months:
+    type: integer
+    nullable: true
+
+  fy26_q1:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  fy26_q2:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  fy26_q3:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  fy26_q4:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  fy26_total:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  carry_forward_payable_fy27:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  guarantee_eligibility_status:
+    type: string
+    nullable: true
+    max_length: 50
+
+  calculated_sip_payroll_currency:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  calculated_sip_usd:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  guarantee_sip_ending_date:
+    type: date
+    nullable: true
+
+  final_guarantee_eligibility_fy26_months:
+    type: integer
+    nullable: true
+
+  total_calculated_sip_payroll_currency:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  total_calculated_sip_usd:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  created_at:
+    type: timestamp
+    nullable: true
+
+
+# =========================================================
+# VALIDATION
+# =========================================================
+
+validations:
+
+  required_columns:
+    - employee_id
+    - payroll_currency
+
+  unique:
+    - employee_id
+
+  accepted_values:
+    active_flag:
+      - "Yes"
+      - "No"
+
+  regex:
+    payroll_currency: "^[A-Z]{3}$"
+
+  ranges:
+    total_base_payroll_currency:
+      min: 0
+
+    sip_target_pct:
+      min: 0
+      max: 1
+
+    guarantee_eligibility_fy25_months:
+      min: 0
+      max: 12
+
+    guarantee_eligibility_fy26_months:
+      min: 0
+      max: 12
+
+
+# =========================================================
+# FX LOOKUP
+# =========================================================
+
+lookups:
+
+  - name: payroll_fx_lookup
+    enabled: true
+
+    reference:
+      layer: reference
+      object: fx_rate
+
+    join:
+      type: left
+
+      source_keys:
+        - payroll_currency
+
+      reference_keys:
+        - currency_code
+
+      cardinality: many_to_one
+
+    outputs:
+      fx_rate_value:
+        source_column: rate_value
+        temporary: true
+
+
+# =========================================================
+# DERIVED COLUMNS
+# Custom operations will be added to TransformationEngine next.
+# =========================================================
+
+derived_columns:
+
+  sip_target:
+    enabled: true
+    stage: before_enrichment
+    operation: multiply
+
+    inputs:
+      - total_base_payroll_currency
+      - sip_target_pct
+
+  guarantee_eligibility_fy25_months:
+    enabled: true
+    stage: before_enrichment
+    operation: nacs_fy25_eligibility_months
+
+    inputs:
+      hire_date: hire_date
+
+    quarter:
+      parameter: quarter
+
+    cutoff_dates:
+      parameter: fy25_cutoff_dates
+
+  payment_in_fy25:
+    enabled: true
+    stage: before_enrichment
+    operation: add
+
+    inputs:
+      - fy25_q1
+      - fy25_q2
+      - fy25_q3
+      - fy25_q4
+
+    null_as_zero: true
+
+  carry_forward_payable_fy26:
+    enabled: true
+    stage: before_enrichment
+    operation: subtract
+
+    inputs:
+      - sip_target
+      - payment_in_fy25
+
+  guarantee_eligibility_fy26_months:
+    enabled: true
+    stage: before_enrichment
+    operation: nacs_fy26_eligibility_months
+
+    inputs:
+      hire_date: hire_date
+      fy25_months: guarantee_eligibility_fy25_months
+
+    cutoff_dates:
+      parameter: fy26_cutoff_dates
+
+  guarantee_eligibility_fy26_q1_months:
+    enabled: true
+    stage: before_enrichment
+    operation: minimum
+
+    inputs:
+      value: guarantee_eligibility_fy26_months
+      maximum:
+        parameter: quarter_month_limit
+
+  guarantee_eligibility_fy26_q2_months:
+    enabled: true
+    stage: before_enrichment
+    operation: nacs_quarter_eligibility_months
+
+    inputs:
+      total_months: guarantee_eligibility_fy26_months
+
+      previous_quarters:
+        - guarantee_eligibility_fy26_q1_months
+
+    cap_value: 3
+    cap_when_above: 3
+    cap_when_at_or_below: 9
+
+  guarantee_eligibility_fy26_q3_months:
+    enabled: true
+    stage: before_enrichment
+    operation: nacs_quarter_eligibility_months
+
+    inputs:
+      total_months: guarantee_eligibility_fy26_months
+
+      previous_quarters:
+        - guarantee_eligibility_fy26_q1_months
+        - guarantee_eligibility_fy26_q2_months
+
+    cap_value: 3
+    cap_when_above: 3
+    cap_when_at_or_below: 6
+
+  guarantee_eligibility_fy26_q4_months:
+    enabled: true
+    stage: before_enrichment
+    operation: subtract_many
+
+    inputs:
+      starting_value: guarantee_eligibility_fy26_months
+      subtract:
+        - guarantee_eligibility_fy26_q1_months
+        - guarantee_eligibility_fy26_q2_months
+        - guarantee_eligibility_fy26_q3_months
+
+  fy26_q1:
+    enabled: true
+    stage: before_enrichment
+    operation: prorate
+
+    inputs:
+      amount: sip_target
+      eligible_units: guarantee_eligibility_fy26_q1_months
+      total_units:
+        parameter: annual_month_count
+
+  fy26_q2:
+    enabled: true
+    stage: before_enrichment
+    operation: prorate
+
+    inputs:
+      amount: sip_target
+      eligible_units: guarantee_eligibility_fy26_q2_months
+      total_units:
+        parameter: annual_month_count
+
+  fy26_q3:
+    enabled: true
+    stage: before_enrichment
+    operation: prorate
+
+    inputs:
+      amount: sip_target
+      eligible_units: guarantee_eligibility_fy26_q3_months
+      total_units:
+        parameter: annual_month_count
+
+  fy26_q4:
+    enabled: true
+    stage: before_enrichment
+    operation: prorate
+
+    inputs:
+      amount: sip_target
+      eligible_units: guarantee_eligibility_fy26_q4_months
+      total_units:
+        parameter: annual_month_count
+
+  fy26_total:
+    enabled: true
+    stage: before_enrichment
+    operation: add
+
+    inputs:
+      - fy26_q1
+      - fy26_q2
+      - fy26_q3
+      - fy26_q4
+
+    null_as_zero: true
+
+  carry_forward_payable_fy27:
+    enabled: true
+    stage: before_enrichment
+    operation: subtract_many
+
+    inputs:
+      starting_value: sip_target
+      subtract:
+        - fy26_total
+        - payment_in_fy25
+
+  guarantee_eligibility_status:
+    enabled: true
+    stage: before_enrichment
+    operation: nacs_guarantee_status
+
+    inputs:
+      hire_date: hire_date
+
+    quarter:
+      parameter: quarter
+
+    check_dates:
+      parameter: eligibility_check_dates
+
+    guarantee_duration_days:
+      parameter: guarantee_duration_days
+
+    eligible_value: "Eligible for Gtee SIP"
+    crossed_value: "Crossed Gtee SIP"
+
+  calculated_sip_payroll_currency:
+    enabled: true
+    stage: before_enrichment
+    operation: copy
+
+    input: fy26_q2
+
+  calculated_sip_usd:
+    enabled: true
+    stage: after_enrichment
+    operation: safe_divide
+
+    inputs:
+      numerator: calculated_sip_payroll_currency
+      denominator: fx_rate_value
+
+    when_denominator_zero: null
+
+  guarantee_sip_ending_date:
+    enabled: true
+    stage: before_enrichment
+    operation: add_days
+
+    inputs:
+      date: hire_date
+      days:
+        parameter: guarantee_duration_days
+
+  final_guarantee_eligibility_fy26_months:
+    enabled: true
+    stage: before_enrichment
+    operation: subtract_many
+
+    inputs:
+      starting_value:
+        parameter: annual_month_count
+
+      subtract:
+        - guarantee_eligibility_fy25_months
+        - guarantee_eligibility_fy26_months
+
+  total_calculated_sip_payroll_currency:
+    enabled: true
+    stage: before_enrichment
+    operation: copy
+
+    input: fy26_total
+
+  total_calculated_sip_usd:
+    enabled: true
+    stage: after_enrichment
+    operation: safe_divide
+
+    inputs:
+      numerator: total_calculated_sip_payroll_currency
+      denominator: fx_rate_value
+
+    when_denominator_zero: null
+
+
+# =========================================================
+# PUBLISH TO CANONICAL.NACS_GUARANTEE
+# =========================================================
+
+publish:
+  columns:
+    - employee_id
+    - preferred_name
+    - job_profile
+    - region
+    - bu
+    - country
+    - employee_type
+    - time_type
+    - cost_center_id
+    - cost_center_name
+    - active_flag
+    - payroll_currency
+    - total_base_payroll_currency
+    - sip_target_pct
+    - hire_date
+    - fy25_q1
+    - fy25_q2
+    - fy25_q3
+    - fy25_q4
+    - comments
+    - sip_target
+    - guarantee_eligibility_fy25_months
+    - payment_in_fy25
+    - carry_forward_payable_fy26
+    - guarantee_eligibility_fy26_months
+    - guarantee_eligibility_fy26_q1_months
+    - guarantee_eligibility_fy26_q2_months
+    - guarantee_eligibility_fy26_q3_months
+    - guarantee_eligibility_fy26_q4_months
+    - fy26_q1
+    - fy26_q2
+    - fy26_q3
+    - fy26_q4
+    - fy26_total
+    - carry_forward_payable_fy27
+    - guarantee_eligibility_status
+    - calculated_sip_payroll_currency
+    - calculated_sip_usd
+    - guarantee_sip_ending_date
+    - final_guarantee_eligibility_fy26_months
+    - total_calculated_sip_payroll_currency
+    - total_calculated_sip_usd
+    - created_at

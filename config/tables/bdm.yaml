@@ -1,0 +1,308 @@
+table:
+  logical_name: bdm
+
+  raw_target:
+    layer: raw
+    object: bdm
+
+  canonical_target:
+    layer: canonical
+    object: bdm
+
+  canonical_dependencies:
+    - sales
+
+
+# =========================================================
+# EXCEL → RAW.BDM
+# =========================================================
+
+source_to_raw:
+  mappings:
+
+    bdm_id:
+      aliases:
+        - EMP ID
+        - Employee ID
+        - Employee Id
+        - BDM ID
+        - BDM_ID
+      required: true
+
+    bdm_name:
+      aliases:
+        - EMP Name
+        - Employee Name
+        - BDM Name
+        - Name
+      required: false
+
+    profitcentersbudesc:
+      aliases:
+        - Profit Center SBU
+        - ProfitCenterSBUDesc
+        - Profit Center SBU Description
+      required: false
+
+    ship_to:
+      aliases:
+        - Shipto
+        - ShipTo
+        - Ship To
+      required: true
+
+    ship_to_description:
+      aliases:
+        - Shipto Desc
+        - ShipToDesc
+        - Ship To Description
+        - Ship To Desc
+      required: false
+
+    ship_to_city:
+      aliases:
+        - ShipTo City
+        - ShipToCity
+        - Ship To City
+      required: false
+
+    material:
+      aliases:
+        - Material Number
+        - Material
+        - Material ID
+      required: false
+
+    sharing_pct:
+      aliases:
+        - Sharing
+        - Sharing %
+        - Sharing Percent
+        - Sharing Percentage
+      required: false
+
+    material_name:
+      aliases:
+        - Material Name
+        - Material Description
+      required: false
+
+  exclude_unmapped_columns: true
+
+
+# =========================================================
+# RAW.BDM → CANONICAL.BDM
+# =========================================================
+
+raw_to_canonical:
+  direct_mappings:
+
+    bdm_id: bdm_id
+    bdm_name: bdm_name
+
+    profitcentersbudesc: profitcentersbudesc
+
+    ship_to: ship_to
+    ship_to_description: ship_to_description
+    ship_to_city: ship_to_city
+
+    material: material
+    sharing_pct: sharing_pct
+    material_name: material_name
+
+    created_at: created_at
+
+
+# =========================================================
+# CLEANING
+# =========================================================
+
+cleaning:
+  trim_strings: true
+  collapse_internal_whitespace: true
+  normalize_empty_strings: true
+
+  null_markers:
+    - ""
+    - "#N/A"
+    - "N/A"
+    - "NA"
+    - "null"
+    - "None"
+    - "-"
+
+
+# =========================================================
+# CANONICAL DATATYPES
+# =========================================================
+
+columns:
+
+  bdm_id:
+    type: string
+    nullable: false
+    max_length: 30
+
+  bdm_name:
+    type: string
+    nullable: true
+    max_length: 200
+
+  profitcentersbudesc:
+    type: string
+    nullable: true
+    max_length: 500
+
+  ship_to:
+    type: string
+    nullable: false
+    max_length: 50
+
+  ship_to_description:
+    type: string
+    nullable: true
+    max_length: 500
+
+  ship_to_city:
+    type: string
+    nullable: true
+    max_length: 100
+
+  material:
+    type: string
+    nullable: true
+    max_length: 100
+
+  sharing_pct:
+    type: percentage
+    nullable: true
+    precision: 7
+    scale: 4
+
+  material_name:
+    type: string
+    nullable: true
+    max_length: 500
+
+  revenue:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  gp:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  created_at:
+    type: timestamp
+    nullable: true
+
+
+# =========================================================
+# VALIDATION
+# =========================================================
+
+validations:
+
+  required_columns:
+    - bdm_id
+    - ship_to
+
+  ranges:
+    sharing_pct:
+      min: 0
+      max: 1
+
+    revenue:
+      allow_negative: true
+
+    gp:
+      allow_negative: true
+
+
+
+# =========================================================
+# DERIVED COLUMNS
+#
+# Revenue / GP will be populated by the BDM matching
+# operation after Sales has already been canonicalized.
+# =========================================================
+
+derived_columns: {}
+
+
+# =========================================================
+# CROSS-TABLE ENRICHMENT
+# =========================================================
+
+lookups:
+
+  - name: bdm_sales_actuals
+    enabled: true
+    operation: conditional_assignment_aggregate
+
+    reference:
+      layer: canonical
+      object: sales
+
+    matching:
+
+      required:
+        - source_column: ship_to
+          reference_column: ship_to
+
+      optional:
+        - source_column: profitcentersbudesc
+          reference_column: profitcentersbudesc
+
+        - source_column: material
+          reference_column: material
+
+    sharing:
+      column: sharing_pct
+      default: 1.0
+
+    outputs:
+
+      revenue:
+        source_column: ytd_rev
+        aggregation: sum
+
+        filters:
+          gp_flag:
+            operator: equals
+            value: "OK"
+
+      gp:
+        source_column: ytd_gp
+        aggregation: sum
+        filters: {}
+
+
+# =========================================================
+# PUBLISH TO CANONICAL.BDM
+# =========================================================
+
+publish:
+  columns:
+
+    - bdm_id
+    - bdm_name
+
+    - profitcentersbudesc
+
+    - ship_to
+    - ship_to_description
+    - ship_to_city
+
+    - material
+    - sharing_pct
+    - material_name
+
+    - revenue
+    - gp
+
+    - created_at

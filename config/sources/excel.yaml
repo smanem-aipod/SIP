@@ -1,0 +1,53 @@
+provider:
+  type: excel
+
+
+workbooks:
+  sip_workbook:
+    path: data/source_files/SIP_ FY26_ NA_CS_Q2_for Algoleap.xlsb
+    engine: pyxlsb
+
+
+tables:
+  employee:
+    workbook: sip_workbook
+    sheet_name: HR
+    header: 0
+
+  bp:
+    workbook: sip_workbook
+    sheet_name: BP File
+    header: 0
+
+  sales:
+    workbook: sip_workbook
+    sheet_name: Tableau YTD 26 Actual
+    header: 0
+
+  nacs_guarantee:
+    workbook: sip_workbook
+    sheet_name: NACS-Guarantee SIP
+    header: 0
+
+  ytd_payments:
+    workbook: sip_workbook
+    sheet_name: YTD Payments
+    header: 0
+
+  bdm:
+    workbook: sip_workbook
+    sheet_name: 0
+    header: 0
+
+
+read_options:
+  keep_default_na: true
+
+  na_values:
+    - ""
+    - "N/A"
+    - "#N/A"
+    - "NA"
+    - "null"
+    - "None"
+    - "-"

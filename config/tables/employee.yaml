@@ -1,0 +1,492 @@
+table:
+  logical_name: employee
+
+  raw_target:
+    layer: raw
+    object: employee
+
+  canonical_target:
+    layer: canonical
+    object: employee
+
+  canonical_dependencies:
+    - bp
+
+
+# =========================================================
+# EXCEL → RAW.EMPLOYEE
+# =========================================================
+
+source_to_raw:
+  mappings:
+
+    employee_id:
+      aliases:
+        - Employee ID
+        - Employee Id
+        - Employee Number
+      required: true
+
+    preferred_name:
+      aliases:
+        - Preferred Name
+        - Employee Name
+      required: false
+
+    sales_office_description:
+      aliases:
+        - Sales Office Desc
+        - Sales office Description
+      required: false
+
+    sales_group_description:
+      aliases:
+        - Sales Group Desc
+        - Sales Group Description
+      required: false
+
+    job_profile:
+      aliases:
+        - Job Profile
+      required: false
+
+    job_profile_for_sip:
+      aliases:  
+        - Job Profile for SIP
+      required: false
+
+    country:
+      aliases:
+        - Country
+      required: false
+
+    region:
+      aliases:
+        - Region
+        - REGION
+      required: false
+
+    bu:
+      aliases:
+        - BU
+        - Business Unit
+      required: false
+
+    active_flag:
+      aliases:
+        - Active (Yes/No)
+        - Active
+        - Active Flag
+      required: false
+
+    annual_salary_payroll_currency:
+      aliases:
+        - Annual Salary (Payroll currency)
+        - Annual Salary (Payroll Currency)
+        - Total Base Pay - Amount (Payroll Currency)
+      required: false
+
+    sip_target_pct:
+      aliases:
+        - SIP Target %
+        - SIP Target Percent
+        - SIP Target Percentage
+      required: false
+
+    local_cost_center_id:
+      aliases:
+        - Local Cost Center ID
+        - Cost Center ID
+      required: false
+
+    local_cost_center_name:
+      aliases:
+        - Local Cost Center Name
+        - Cost Center Name
+      required: false
+
+    global_cost_center:
+      aliases:
+        - Global Cost Center
+      required: false
+
+    payroll_currency:
+      aliases:
+        - Payroll Currency
+      required: true
+
+    hire_date:
+      aliases:
+        - Hire Date
+      required: false
+
+    movement_date:
+      aliases:
+        - Movement date
+        - Movement Date
+      required: false
+
+    termination_date:
+      aliases:
+        - Termination date
+        - Termination Date
+      required: false
+
+    sip_team_comments:
+      aliases:
+        - SIP Team Comments
+      required: false
+
+    regional_fpa_comments:
+      aliases:
+        - Regional FP&A Comments
+        - Regional FPA Comments
+      required: false
+
+    status:
+      aliases:
+        - Status
+      required: false
+
+    color_code:
+      aliases:
+        - Color Code
+      required: false
+
+  exclude_unmapped_columns: true
+
+  generated_values:
+    record_source:
+      runtime_parameter: record_source.employee
+
+
+# =========================================================
+# RAW.EMPLOYEE → CANONICAL.EMPLOYEE
+# =========================================================
+
+raw_to_canonical:
+  direct_mappings:
+    employee_sk: employee_sk
+    employee_id: employee_id
+    preferred_name: preferred_name
+    sales_office_description: sales_office_description
+    sales_group_description: sales_group_description
+    job_profile: job_profile
+    job_profile_for_sip: job_profile_for_sip
+    country: country
+    region: region
+    bu: bu
+    active_flag: active_flag
+    annual_salary_payroll_currency: annual_salary_payroll_currency
+    sip_target_pct: sip_target_pct
+    local_cost_center_id: local_cost_center_id
+    local_cost_center_name: local_cost_center_name
+    global_cost_center: global_cost_center
+    payroll_currency: payroll_currency
+    hire_date: hire_date
+    movement_date: movement_date
+    termination_date: termination_date
+    status: status
+    record_source: record_source
+    created_at: created_at
+
+
+# =========================================================
+# CLEANING
+# =========================================================
+
+cleaning:
+  trim_strings: true
+  collapse_internal_whitespace: true
+  normalize_empty_strings: true
+
+  null_markers:
+    - ""
+    - "#N/A"
+    - "N/A"
+    - "NA"
+    - "null"
+    - "None"
+    - "-"
+
+  uppercase:
+    - region
+    - bu
+    - payroll_currency
+
+  value_mappings:
+    active_flag:
+      "Yes": "Yes"
+      "YES": "Yes"
+      "Y": "Yes"
+      "Active": "Yes"
+      "true": "Yes"
+      "1": "Yes"
+
+      "No": "No"
+      "NO": "No"
+      "N": "No"
+      "Inactive": "No"
+      "false": "No"
+      "0": "No"
+
+
+# =========================================================
+# CANONICAL DATATYPES
+# =========================================================
+
+columns:
+
+  employee_sk:
+    type: integer
+    nullable: false
+
+  employee_id:
+    type: string
+    nullable: false
+    max_length: 10
+
+  preferred_name:
+    type: string
+    nullable: true
+    max_length: 100
+
+  sales_office_description:
+    type: string
+    nullable: true
+    max_length: 200
+
+  sales_group_description:
+    type: string
+    nullable: true
+    max_length: 200
+
+  job_profile:
+    type: string
+    nullable: true
+    max_length: 100
+
+  job_profile_for_sip:
+    type: string
+    nullable: true
+    max_length: 100
+
+  country:
+    type: string
+    nullable: true
+    max_length: 50
+
+  region:
+    type: string
+    nullable: true
+    max_length: 50
+
+  bu:
+    type: string
+    nullable: true
+    max_length: 10
+
+  active_flag:
+    type: string
+    nullable: true
+    max_length: 10
+
+  annual_salary_payroll_currency:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  annual_salary_usd:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  sip_target_pct:
+    type: percentage
+    nullable: true
+    precision: 7
+    scale: 4
+
+  local_cost_center_id:
+    type: string
+    nullable: true
+    max_length: 100
+
+  local_cost_center_name:
+    type: string
+    nullable: true
+    max_length: 100
+
+  global_cost_center:
+    type: string
+    nullable: true
+    max_length: 100
+
+  payroll_currency:
+    type: currency_code
+    nullable: false
+
+  hire_date:
+    type: date
+    nullable: true
+    day_first: true
+
+  movement_date:
+    type: date
+    nullable: true
+    day_first: true
+
+  termination_date:
+    type: date
+    nullable: true
+    day_first: true
+
+  sip_eligible_date:
+    type: date
+    nullable: true
+    day_first: true
+
+  status:
+    type: string
+    nullable: true
+    max_length: 100
+
+  record_source:
+    type: string
+    nullable: true
+    max_length: 50
+
+  created_at:
+    type: timestamp
+    nullable: true
+
+
+# =========================================================
+# VALIDATION
+# =========================================================
+
+validations:
+
+  required_columns:
+    - employee_sk
+    - employee_id
+    - payroll_currency
+
+  unique:
+    - employee_id
+
+  accepted_values:
+    active_flag:
+      - "Yes"
+      - "No"
+
+  regex:
+    payroll_currency: "^[A-Z]{3}$"
+
+  ranges:
+    annual_salary_payroll_currency:
+      min: 0
+
+    sip_target_pct:
+      min: 0
+      max: 1
+
+  date_rules:
+    termination_date:
+      greater_than_or_equal_to: hire_date
+
+
+# =========================================================
+# REFERENCED COLUMNS
+# =========================================================
+
+lookups:
+
+  - name: payroll_fx_lookup
+    enabled: true
+
+    reference:
+      layer: reference
+      object: fx_rate
+
+    join:
+      type: left
+      source_keys:
+        - payroll_currency
+      reference_keys:
+        - currency_code
+      cardinality: many_to_one
+
+    outputs:
+      fx_rate_value:
+        source_column: rate_value
+        temporary: true
+
+
+# =========================================================
+# DERIVED COLUMNS
+# =========================================================
+
+derived_columns:
+
+  annual_salary_usd:
+    enabled: true
+    stage: after_enrichment
+    operation: safe_divide
+
+    inputs:
+      numerator: annual_salary_payroll_currency
+      denominator: fx_rate_value
+
+    when_denominator_zero: null
+
+
+  sip_eligible_date:
+    enabled: true
+    stage: after_enrichment
+    operation: employee_sip_eligible_date
+
+    inputs:
+      active_flag: active_flag
+      termination_date: termination_date
+      movement_date: movement_date
+      hire_date: hire_date
+
+    active_value: "Yes" 
+
+
+
+
+# =========================================================
+# PUBLISH TO CANONICAL.EMPLOYEE
+# =========================================================
+
+publish:
+  columns:
+    - employee_sk
+    - employee_id
+    - preferred_name
+    - sales_office_description
+    - sales_group_description
+    - job_profile
+    - job_profile_for_sip
+    - country
+    - region
+    - bu
+    - active_flag
+    - annual_salary_payroll_currency
+    - annual_salary_usd
+    - sip_target_pct
+    - local_cost_center_id
+    - local_cost_center_name
+    - global_cost_center
+    - payroll_currency
+    - hire_date
+    - movement_date
+    - termination_date
+    - sip_eligible_date
+    - status
+    - record_source
+    - created_at

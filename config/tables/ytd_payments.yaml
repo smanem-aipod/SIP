@@ -1,0 +1,269 @@
+table:
+  logical_name: ytd_payments
+
+  raw_target:
+    layer: raw
+    object: ytd_payments
+
+  canonical_target:
+    layer: canonical
+    object: ytd_payments
+
+  canonical_dependencies: []
+
+
+# =========================================================
+# EXCEL → RAW.YTD_PAYMENTS
+# =========================================================
+
+source_to_raw:
+  mappings:
+
+    employee_id:
+      aliases:
+        - Employee ID
+        - Employee Id
+        - Employee Number
+        - Solenis
+      required: true
+
+    preferred_name:
+      aliases:
+        - Preferred Name
+        - Employee Name
+        - Full Name
+        - Name
+      required: false
+
+    job_profile:
+      aliases:
+        - Job Profile
+        - Position
+      required: false
+
+    country:
+      aliases:
+        - Country
+      required: false
+
+    bu:
+      aliases:
+        - BU
+        - Business Unit
+        - Bus. Unit
+        - Department
+      required: false
+
+    currency_code:
+      aliases:
+        - Currency
+        - Currency Code
+        - Payroll Currency
+      required: true
+
+    sip_payroll_currency:
+      aliases:
+        - Payroll Currency Amount
+        - SIP Payroll Currency
+        - Payroll Currency
+      required: false
+
+    crossed_gtee:
+      aliases:
+        - Crossed Gtee
+        - Crossed Guarantee
+        - Guarantee Status
+      required: false
+
+  exclude_unmapped_columns: true
+
+  generated_values:
+    record_source:
+      runtime_parameter: record_source.ytd_payments
+
+
+# =========================================================
+# RAW.YTD_PAYMENTS → CANONICAL.YTD_PAYMENTS
+# =========================================================
+
+raw_to_canonical:
+  direct_mappings:
+    employee_id: employee_id
+    preferred_name: preferred_name
+    job_profile: job_profile
+    country: country
+    bu: bu
+    currency_code: currency_code
+    sip_payroll_currency: sip_payroll_currency
+    crossed_gtee: crossed_gtee
+    record_source: record_source
+    created_at: created_at
+
+
+# =========================================================
+# CLEANING
+# =========================================================
+
+cleaning:
+  trim_strings: true
+  collapse_internal_whitespace: true
+  normalize_empty_strings: true
+
+  null_markers:
+    - ""
+    - "#N/A"
+    - "N/A"
+    - "NA"
+    - "null"
+    - "None"
+    - "-"
+
+  uppercase:
+    - bu
+    - currency_code
+
+
+# =========================================================
+# CANONICAL DATATYPES
+# =========================================================
+
+columns:
+
+  employee_id:
+    type: string
+    nullable: false
+    max_length: 10
+
+  preferred_name:
+    type: string
+    nullable: true
+    max_length: 200
+
+  job_profile:
+    type: string
+    nullable: true
+    max_length: 200
+
+  country:
+    type: string
+    nullable: true
+    max_length: 100
+
+  bu:
+    type: string
+    nullable: true
+    max_length: 50
+
+  currency_code:
+    type: currency_code
+    nullable: false
+
+  sip_payroll_currency:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  crossed_gtee:
+    type: string
+    nullable: true
+    max_length: 200
+
+  sip_in_usd:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  record_source:
+    type: string
+    nullable: true
+    max_length: 50
+
+  created_at:
+    type: timestamp
+    nullable: true
+
+
+# =========================================================
+# VALIDATION
+# =========================================================
+
+validations:
+
+  required_columns:
+    - employee_id
+    - currency_code
+
+  unique:
+    - employee_id
+
+  regex:
+    currency_code: "^[A-Z]{3}$"
+
+
+# =========================================================
+# REFERENCED COLUMNS
+# =========================================================
+
+lookups:
+
+  - name: currency_fx_lookup
+    enabled: true
+
+    reference:
+      layer: reference
+      object: fx_rate
+
+    join:
+      type: left
+
+      source_keys:
+        - currency_code
+
+      reference_keys:
+        - currency_code
+
+      cardinality: many_to_one
+
+    outputs:
+      fx_rate_value:
+        source_column: rate_value
+        temporary: true
+
+
+# =========================================================
+# DERIVED COLUMNS
+# =========================================================
+
+derived_columns:
+
+  sip_in_usd:
+    enabled: true
+    stage: after_enrichment
+    operation: safe_divide
+
+    inputs:
+      numerator: sip_payroll_currency
+      denominator: fx_rate_value
+
+    when_denominator_zero: null
+
+
+# =========================================================
+# PUBLISH TO CANONICAL.YTD_PAYMENTS
+# =========================================================
+
+publish:
+  columns:
+    - employee_id
+    - preferred_name
+    - job_profile
+    - country
+    - bu
+    - currency_code
+    - sip_payroll_currency
+    - crossed_gtee
+    - sip_in_usd
+    - record_source
+    - created_at
