@@ -58,14 +58,43 @@ class CanonicalBuilder:
             - set(raw_dataframe.columns)
         )
 
+        working_frame = raw_dataframe
         if missing_raw_columns:
-            raise ColumnMappingError(
-                f"Raw dataset {logical_table_name!r} is missing "
-                f"columns required for canonical mapping: "
-                f"{missing_raw_columns}"
+            source_to_raw_mappings = table_config.get(
+                "source_to_raw",
+                {},
+            ).get(
+                "mappings",
+                {},
+            )
+            missing_required_columns = sorted(
+                column
+                for column in missing_raw_columns
+                if bool(
+                    source_to_raw_mappings.get(column, {}).get(
+                        "required",
+                        False,
+                    )
+                )
             )
 
-        canonical_frame = raw_dataframe[
+            if missing_required_columns:
+                raise ColumnMappingError(
+                    f"Raw dataset {logical_table_name!r} is missing "
+                    f"columns required for canonical mapping: "
+                    f"{missing_required_columns}"
+                )
+
+            logger.info(
+                "canonical_builder_missing_optional_columns",
+                logical_table_name=logical_table_name,
+                missing_columns=missing_raw_columns,
+            )
+            working_frame = raw_dataframe.copy()
+            for missing_column in missing_raw_columns:
+                working_frame[missing_column] = None
+
+        canonical_frame = working_frame[
             list(direct_mappings.keys())
         ].rename(
             columns=direct_mappings

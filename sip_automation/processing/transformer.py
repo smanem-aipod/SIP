@@ -759,11 +759,17 @@ class TransformationEngine:
 
         Rule:
         - If active_flag is Yes:
-            termination_date, if present
+            termination_date, if present and not stale (see below)
             otherwise movement_date, if present
             otherwise hire_date
         - Otherwise:
             NULL
+
+        A termination_date older than hire_date is stale (e.g. a rehired
+        employee whose termination_date still reflects a previous
+        employment stint) and is ignored, falling through to
+        movement_date/hire_date instead - the employee remains SIP
+        eligible based on their current hire.
         """
 
         del context
@@ -818,14 +824,36 @@ class TransformationEngine:
             .eq(active_value)
         )
 
-        preferred_date = (
-            result[
-                [
-                    termination_date_column,
-                    movement_date_column,
-                    hire_date_column,
-                ]
+        termination_dates = pd.to_datetime(
+            result[termination_date_column],
+            errors="coerce",
+        )
+        hire_dates = pd.to_datetime(
+            result[hire_date_column],
+            errors="coerce",
+        )
+
+        stale_termination_mask = (
+            termination_dates.notna()
+            & hire_dates.notna()
+            & (termination_dates < hire_dates)
+        )
+
+        date_columns = result[
+            [
+                termination_date_column,
+                movement_date_column,
+                hire_date_column,
             ]
+        ].copy()
+
+        date_columns.loc[
+            stale_termination_mask,
+            termination_date_column,
+        ] = None
+
+        preferred_date = (
+            date_columns
             .bfill(axis=1)
             .iloc[:, 0]
         )

@@ -47,8 +47,18 @@ ALLOWED_SOURCE_FILES: dict[str, str] = {
     "bdm": "BDM",
 }
 
-# The column that identifies an employee in every raw table.
-EMPLOYEE_ID_COLUMN = "Employee ID"
+# Each raw table identifies an employee under a different column name
+# (set by that table's config/tables/*.yaml direct_mappings) - there is no
+# single "Employee ID" column across all of them. bp uses a "shared"
+# column, bdm uses its own bdm_id concept entirely.
+EMPLOYEE_ID_COLUMN_BY_SOURCE_FILE: dict[str, str] = {
+    "employee": "employee_id",
+    "bp": "employee_id_only_for_shared",
+    "sales": "employee_id",
+    "nacs_guarantee": "employee_id",
+    "ytd_payments": "employee_id",
+    "bdm": "bdm_id",
+}
 
 
 def _now() -> str:
@@ -247,15 +257,21 @@ def apply_corrections_to_dataframe(
     """
     Apply any matching data corrections to a raw DataFrame in-place (copy).
 
-    Matches by EMPLOYEE_ID_COLUMN value (case-insensitive strip). If the
-    specified column does not exist in df, that correction is silently skipped.
+    Matches by that table's employee-id raw column (see
+    EMPLOYEE_ID_COLUMN_BY_SOURCE_FILE - it differs per table, there is no
+    single "Employee ID" column across all raw tables). If the specified
+    column does not exist in df, that correction is silently skipped.
     """
     matching = [c for c in corrections if c.source_file == logical_table_name]
-    if not matching or EMPLOYEE_ID_COLUMN not in df.columns:
+    if not matching:
+        return df
+
+    emp_id_column = EMPLOYEE_ID_COLUMN_BY_SOURCE_FILE.get(logical_table_name)
+    if emp_id_column is None or emp_id_column not in df.columns:
         return df
 
     df = df.copy()
-    emp_col = df[EMPLOYEE_ID_COLUMN].astype(str).str.strip().str.upper()
+    emp_col = df[emp_id_column].astype(str).str.strip().str.upper()
 
     for correction in matching:
         emp_id = str(correction.employee_id).strip().upper()
@@ -264,6 +280,24 @@ def apply_corrections_to_dataframe(
             continue
         if correction.column_name not in df.columns:
             continue
-        df.loc[mask, correction.column_name] = correction.new_value
+
+        # new_value is always a string (see DataCorrection), but raw
+        # columns loaded from Postgres keep their real dtype (int64,
+        # float64, etc.) - assigning a string directly into a numeric
+        # column raises a pandas dtype error. Coerce to match where
+        # possible; otherwise widen the column to object so the
+        # assignment can't crash the whole canonical pipeline run.
+        column_dtype = df[correction.column_name].dtype
+        value: Any = correction.new_value
+
+        if pd.api.types.is_numeric_dtype(column_dtype):
+            try:
+                value = pd.to_numeric(correction.new_value)
+            except (TypeError, ValueError):
+                df[correction.column_name] = df[correction.column_name].astype(object)
+        elif pd.api.types.is_bool_dtype(column_dtype):
+            value = str(correction.new_value).strip().lower() in ("true", "1", "yes")
+
+        df.loc[mask, correction.column_name] = value
 
     return df

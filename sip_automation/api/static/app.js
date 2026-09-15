@@ -393,6 +393,7 @@
   const camStatus = document.getElementById("cam-status");
   const camViewResultsButton = document.getElementById("cam-view-results-button");
   const camAddButton = document.getElementById("cam-add-button");
+  const camDivisionTotalsWarning = document.getElementById("cam-division-totals-warning");
   const camSearchInput = document.getElementById("cam-search-input");
   const camTable = document.getElementById("cam-table");
   const camPendingHint = document.getElementById("cam-pending-hint");
@@ -653,12 +654,10 @@
       bdm_file: document.getElementById("bdm_file").files[0],
     };
 
-    for (const [field, file] of Object.entries(files)) {
-      if (!file) {
-        uploadError.textContent = `Please choose a file for ${field.replace("_file", "")}.`;
-        uploadError.hidden = false;
-        return;
-      }
+    if (!Object.values(files).some(Boolean)) {
+      uploadError.textContent = "Please choose at least one file to upload.";
+      uploadError.hidden = false;
+      return;
     }
 
     runButton.disabled = true;
@@ -676,12 +675,11 @@
       setStep(1, "active");
       setProgress(6); // small visible sliver so the bar isn't 0-width/invisible while this (often long) stage runs
       const formData = new FormData();
-      formData.append("employee_file", files.employee_file);
-      formData.append("bp_file", files.bp_file);
-      formData.append("sales_file", files.sales_file);
-      formData.append("nacs_guarantee_file", files.nacs_guarantee_file);
-      formData.append("ytd_payments_file", files.ytd_payments_file);
-      formData.append("bdm_file", files.bdm_file);
+      for (const [field, file] of Object.entries(files)) {
+        if (file) {
+          formData.append(field, file);
+        }
+      }
 
       const rawLoadResponse = await fetch(API_BASE, {
         method: "POST",
@@ -1124,6 +1122,7 @@
       const s = data.summary || {};
       hrSummaryBar.innerHTML =
         `<span class="hr-badge hr-badge-new">New Joiners: ${s.new_joiners || 0}</span>` +
+        `<span class="hr-badge hr-badge-rehire">Rehire/Movement: ${s.rehires_movements || 0}</span>` +
         `<span class="hr-badge hr-badge-leaver">Leavers: ${s.leavers || 0}</span>` +
         `<span class="hr-badge hr-badge-change">Field Changes: ${s.field_changes || 0} employees</span>` +
         `<span class="hr-badge">Total Affected: ${s.employees_affected || 0}</span>`;
@@ -1190,6 +1189,7 @@
 
       const changeTypeClass = {
         "New Joiner": "hr-ct-new",
+        "Rehire / Movement": "hr-ct-rehire",
         "Leaver": "hr-ct-leaver",
         "Field Change": "hr-ct-change",
       }[change.change_type] || "";
@@ -1312,10 +1312,15 @@
       } else {
         showHrSection();
       }
-      return;
     }
 
-    // If admin settings was open before the reload, reopen it to the same tab.
+    // If admin settings was open before the reload, reopen it to the same
+    // tab - regardless of whether a run was restored. A page reload can
+    // happen at any time (manual refresh, or the browser discarding an
+    // idle/backgrounded tab to save memory and reloading it when it comes
+    // back into focus), including before any run exists yet. Without this
+    // check running unconditionally, that reload silently drops the user
+    // back on Upload/HR instead of the admin tab they were actually on.
     if (sessionStorage.getItem(ADMIN_OPEN_KEY) === "true" &&
         sessionStorage.getItem(ADMIN_AUTH_STORAGE_KEY) === "true") {
       const savedTab = sessionStorage.getItem(ADMIN_TAB_KEY);
@@ -2402,6 +2407,71 @@
   let camSearchTerm = "";
   // Pending inline edits: key = "cam_id|division_node" → {cam_id, division_node, pct_rev, pct_gp, note, existing_id}
   const camPending = {};
+  let camDivisionTotalProblems = [];
+
+  // Effective % for a row = pending edit (if the field was touched, even
+  // to clear it back to blank) > saved override > computed default.
+  function getEffectiveCamPct(key, ratio, override, pendingField) {
+    const computedField = pendingField === "pct_rev" ? "allocation_pct_rev" : "allocation_pct_gp";
+    const pending = camPending[key];
+    if (pending && Object.prototype.hasOwnProperty.call(pending, pendingField)) {
+      const v = pending[pendingField];
+      if (v !== null && v !== undefined) return v;
+      return ratio[computedField] !== undefined ? ratio[computedField] : null;
+    }
+    if (override && override[computedField] !== null && override[computedField] !== undefined) {
+      return override[computedField];
+    }
+    return ratio[computedField] !== undefined ? ratio[computedField] : null;
+  }
+
+  // Sharing % across all CAMs assigned to the same Division Node must add
+  // up to 100% (both Revenue and GP), otherwise actual $ allocated to that
+  // division won't reconcile. Rows with no Division Node (applies to all
+  // divisions) are excluded - they aren't part of a specific 100% split.
+  function checkCamDivisionTotals(baseRows, overrideMap) {
+    const totals = {};
+    baseRows.forEach((ratio) => {
+      const divisionNode = ratio.division_node;
+      if (!divisionNode) return;
+      const key = `${ratio.cam_id}|${divisionNode}`;
+      const override = overrideMap[key];
+      const rev = getEffectiveCamPct(key, ratio, override, "pct_rev");
+      const gp = getEffectiveCamPct(key, ratio, override, "pct_gp");
+      if (!totals[divisionNode]) totals[divisionNode] = { rev: 0, gp: 0, revCount: 0, gpCount: 0 };
+      if (rev !== null && rev !== undefined) { totals[divisionNode].rev += rev; totals[divisionNode].revCount += 1; }
+      if (gp !== null && gp !== undefined) { totals[divisionNode].gp += gp; totals[divisionNode].gpCount += 1; }
+    });
+
+    const TOLERANCE = 0.01;
+    const problems = [];
+    Object.keys(totals).sort().forEach((divisionNode) => {
+      const t = totals[divisionNode];
+      if (t.revCount > 0 && Math.abs(t.rev - 100) > TOLERANCE) {
+        problems.push({
+          divisionNode,
+          message: `Division "${divisionNode}": Revenue Sharing % totals ${t.rev.toFixed(2)}% across all CAMs (must equal 100%).`,
+        });
+      }
+      if (t.gpCount > 0 && Math.abs(t.gp - 100) > TOLERANCE) {
+        problems.push({
+          divisionNode,
+          message: `Division "${divisionNode}": GP Sharing % totals ${t.gp.toFixed(2)}% across all CAMs (must equal 100%).`,
+        });
+      }
+    });
+
+    camDivisionTotalProblems = problems;
+    if (problems.length > 0) {
+      camDivisionTotalsWarning.innerHTML =
+        "<strong>Sharing % must total 100% per Division Node:</strong><br>" +
+        problems.map((p) => p.message.replace(/</g, "&lt;")).join("<br>");
+      camDivisionTotalsWarning.hidden = false;
+    } else {
+      camDivisionTotalsWarning.hidden = true;
+    }
+    return problems;
+  }
 
   async function loadComputedCamRatios() {
     if (!currentRunId) { computedCamRatios = []; return; }
@@ -2486,6 +2556,34 @@
         const v = inp.value.trim() === "" ? null : parseFloat(inp.value);
         camPending[key][field] = v;
         updateCamPendingHint();
+        checkCamDivisionTotals(baseRows, overrideMap);
+      });
+      return inp;
+    }
+
+    function makeNoteInput(key, overrideNote) {
+      const inp = document.createElement("input");
+      inp.type = "text"; inp.placeholder = "Add a note…";
+      inp.style.width = "160px"; inp.style.fontSize = "13px";
+      const pending = camPending[key];
+      const val = pending ? pending.note
+                : overrideNote !== null && overrideNote !== undefined ? overrideNote
+                : "";
+      if (val) inp.value = val;
+      inp.addEventListener("change", function () {
+        if (!camPending[key]) {
+          const ov = overrideMap[key];
+          camPending[key] = {
+            cam_id: key.split("|")[0],
+            division_node: key.split("|")[1] || null,
+            pct_rev: ov ? ov.allocation_pct_rev : null,
+            pct_gp:  ov ? ov.allocation_pct_gp  : null,
+            note:    ov ? ov.note : null,
+            existing_id: ov ? ov.id : null,
+          };
+        }
+        camPending[key].note = inp.value.trim() === "" ? null : inp.value.trim();
+        updateCamPendingHint();
       });
       return inp;
     }
@@ -2520,7 +2618,7 @@
       tr.appendChild(tdOGp);
       // Note
       const tdNote = document.createElement("td");
-      tdNote.textContent = override ? (override.note || "") : "";
+      tdNote.appendChild(makeNoteInput(key, override ? override.note : null));
       tr.appendChild(tdNote);
 
       tbody.appendChild(tr);
@@ -2537,6 +2635,7 @@
     }
 
     updateCamPendingHint();
+    checkCamDivisionTotals(baseRows, overrideMap);
   }
 
   function updateCamPendingHint() {
@@ -2602,12 +2701,31 @@
 
   camApplyAllButton.addEventListener("click", async function () {
     camError.hidden = true;
+
+    if (camDivisionTotalProblems.length > 0) {
+      const pendingDivisions = new Set(
+        Object.values(camPending)
+          .map((entry) => entry.division_node)
+          .filter(Boolean)
+      );
+      const blockingProblems = camDivisionTotalProblems.filter((p) =>
+        pendingDivisions.has(p.divisionNode)
+      );
+      if (blockingProblems.length > 0) {
+        camError.textContent =
+          "Fix the Sharing % totals before saving: " +
+          blockingProblems.map((p) => p.message).join(" ");
+        camError.hidden = false;
+        return;
+      }
+    }
+
     camApplyAllButton.disabled = true;
     camApplyAllButton.textContent = "Saving…";
 
     try {
       for (const [, entry] of Object.entries(camPending)) {
-        if (entry.pct_rev === null && entry.pct_gp === null) continue;
+        if (entry.pct_rev === null && entry.pct_gp === null && !entry.note) continue;
         const payload = {
           cam_id: entry.cam_id,
           division_node: entry.division_node || null,
@@ -2653,9 +2771,10 @@
 
     const pctRevRaw = camPctRevInput.value.trim();
     const pctGpRaw = camPctGpInput.value.trim();
+    const noteRaw = camNoteInput.value.trim();
 
-    if (!pctRevRaw && !pctGpRaw) {
-      camFormError.textContent = "At least one of Allocation % Revenue or Allocation % GP is required.";
+    if (!pctRevRaw && !pctGpRaw && !noteRaw) {
+      camFormError.textContent = "Enter Allocation % Revenue, Allocation % GP, or a note.";
       camFormError.hidden = false;
       return;
     }

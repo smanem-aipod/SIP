@@ -93,51 +93,47 @@ def get_calculation_parameters(
     status_code=status.HTTP_201_CREATED,
 )
 def create_run(
-    employee_file: UploadFile = File(...),
-    bp_file: UploadFile = File(...),
-    sales_file: UploadFile = File(...),
-    nacs_guarantee_file: UploadFile = File(...),
-    ytd_payments_file: UploadFile = File(...),
-    bdm_file: UploadFile = File(...),
+    employee_file: UploadFile | None = File(None),
+    bp_file: UploadFile | None = File(None),
+    sales_file: UploadFile | None = File(None),
+    nacs_guarantee_file: UploadFile | None = File(None),
+    ytd_payments_file: UploadFile | None = File(None),
+    bdm_file: UploadFile | None = File(None),
     application: SIPApplication = Depends(get_application),
 ) -> RawLoadResponse:
 
     run_id = uuid4()
     run_directory = (_UPLOAD_ROOT / str(run_id)).resolve()
 
+    provided_files = {
+        "employee": employee_file,
+        "bp": bp_file,
+        "sales": sales_file,
+        "nacs_guarantee": nacs_guarantee_file,
+        "ytd_payments": ytd_payments_file,
+        "bdm": bdm_file,
+    }
+    provided_files = {
+        name: upload
+        for name, upload in provided_files.items()
+        if upload is not None and upload.filename
+    }
+
+    if not provided_files:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="At least one source file must be uploaded.",
+        )
+
     try:
 
         uploaded_paths = {
-            "employee": _save_upload(
-                employee_file,
+            logical_name: _save_upload(
+                upload,
                 run_directory,
-                "employee",
-            ),
-            "bp": _save_upload(
-                bp_file,
-                run_directory,
-                "bp",
-            ),
-            "sales": _save_upload(
-                sales_file,
-                run_directory,
-                "sales",
-            ),
-            "nacs_guarantee": _save_upload(
-                nacs_guarantee_file,
-                run_directory,
-                "nacs_guarantee",
-            ),
-            "ytd_payments": _save_upload(
-                ytd_payments_file,
-                run_directory,
-                "ytd_payments",
-            ),
-            "bdm": _save_upload(
-                bdm_file,
-                run_directory,
-                "bdm",
-            ),
+                logical_name,
+            )
+            for logical_name, upload in provided_files.items()
         }
 
         application.run_raw_loading(
@@ -187,14 +183,10 @@ def create_run(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Raw loading failed for run {run_id}.",
         ) from exc
-    
+
     finally:
-        employee_file.file.close()
-        bp_file.file.close()
-        sales_file.file.close()
-        nacs_guarantee_file.file.close()
-        ytd_payments_file.file.close()
-        bdm_file.file.close()
+        for upload in provided_files.values():
+            upload.file.close()
 @router.post(
     "/{run_id}/canonical",
     response_model=PipelineStageResponse,

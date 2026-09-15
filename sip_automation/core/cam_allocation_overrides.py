@@ -98,10 +98,12 @@ class CAMAllocationOverridesStore:
 
         pct_rev = _validate_pct("allocation_pct_rev", payload.get("allocation_pct_rev"))
         pct_gp = _validate_pct("allocation_pct_gp", payload.get("allocation_pct_gp"))
+        note = str(payload.get("note") or "").strip() or None
 
-        if pct_rev is None and pct_gp is None:
+        if pct_rev is None and pct_gp is None and note is None:
             raise _ValidationError(
-                "At least one of allocation_pct_rev or allocation_pct_gp is required."
+                "At least one of allocation_pct_rev, allocation_pct_gp, "
+                "or note is required."
             )
 
         now = _now()
@@ -112,7 +114,7 @@ class CAMAllocationOverridesStore:
             division_node=str(payload.get("division_node") or "").strip() or None,
             allocation_pct_rev=pct_rev,
             allocation_pct_gp=pct_gp,
-            note=payload.get("note") or None,
+            note=note,
             created_at=now,
             updated_at=now,
             updated_by=changed_by,
@@ -158,17 +160,20 @@ class CAMAllocationOverridesStore:
         merged_gp = payload.get("allocation_pct_gp", updated.get("allocation_pct_gp"))
         pct_rev = _validate_pct("allocation_pct_rev", merged_rev)
         pct_gp = _validate_pct("allocation_pct_gp", merged_gp)
+        merged_note = payload.get("note", updated.get("note"))
+        note = str(merged_note or "").strip() or None
 
-        if pct_rev is None and pct_gp is None:
+        if pct_rev is None and pct_gp is None and note is None:
             raise _ValidationError(
-                "At least one of allocation_pct_rev or allocation_pct_gp is required."
+                "At least one of allocation_pct_rev, allocation_pct_gp, "
+                "or note is required."
             )
 
         updated["allocation_pct_rev"] = pct_rev
         updated["allocation_pct_gp"] = pct_gp
 
         if "note" in payload:
-            updated["note"] = payload["note"] or None
+            updated["note"] = note
 
         updated["updated_at"] = _now()
         updated["updated_by"] = changed_by

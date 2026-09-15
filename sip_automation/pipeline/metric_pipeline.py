@@ -400,11 +400,13 @@ class MetricPipeline:
         )
 
         if dataframe.empty:
-            raise PipelineExecutionError(
-                f"Canonical table {logical_table_name!r} "
-                f"contains no rows for run "
-                f"{context.run_id}."
+            logger.info(
+                "metric_canonical_dataset_missing",
+                **context.as_log_context(),
+                logical_table_name=logical_table_name,
+                reason="no_rows_for_run",
             )
+            return dataframe
 
         logger.info(
             "metric_canonical_dataset_loaded",

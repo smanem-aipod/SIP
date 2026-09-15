@@ -874,6 +874,7 @@ tbody tr:hover {
 }
 
 .hr-badge-new  { background: #d1fae5; color: #065f46; }
+.hr-badge-rehire { background: #e0e7ff; color: #3730a3; }
 .hr-badge-leaver { background: #fee2e2; color: #991b1b; }
 .hr-badge-change { background: #fef3c7; color: #92400e; }
 
@@ -906,6 +907,7 @@ tbody tr:hover {
 }
 
 .hr-ct-new    { color: #065f46; font-weight: 600; }
+.hr-ct-rehire { color: #3730a3; font-weight: 600; }
 .hr-ct-leaver { color: #991b1b; font-weight: 600; }
 .hr-ct-change { color: #92400e; font-weight: 600; }
 

@@ -125,10 +125,30 @@ class CanonicalPipeline:
             )
 
             if raw_frame.empty:
-                raise PipelineExecutionError(
-                    f"No raw records were found for "
-                    f"{logical_table_name!r} and pipeline run "
-                    f"{context.run_id}."
+                logger.info(
+                    "canonical_pipeline_skipped",
+                    run_id=str(context.run_id),
+                    logical_table_name=logical_table_name,
+                    reason="no_raw_records",
+                )
+                schema_name, table_name = (
+                    self.canonical_repository.get_target(
+                        logical_table_name
+                    )
+                )
+                empty_report = ValidationReport(
+                    logical_table_name=logical_table_name,
+                    issues=[],
+                )
+                return CanonicalTableResult(
+                    logical_table_name=logical_table_name,
+                    source_row_count=0,
+                    canonical_row_count=0,
+                    canonical_column_count=0,
+                    schema_name=schema_name,
+                    table_name=table_name,
+                    pre_enrichment_validation=empty_report,
+                    final_validation=empty_report,
                 )
 
             canonical_frame = CanonicalBuilder.build(

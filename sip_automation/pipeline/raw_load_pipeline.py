@@ -54,9 +54,24 @@ class RawLoadPipeline:
     ) -> dict[str, RawTableResult]:
         results: dict[str, RawTableResult] = {}
 
+        uploaded_files = context.uploaded_files
+
         for logical_table_name in (
             self.config.get_raw_load_order()
         ):
+            if (
+                uploaded_files is not None
+                and not uploaded_files.is_empty
+                and uploaded_files.get_file(logical_table_name) is None
+            ):
+                logger.info(
+                    "raw_load_pipeline_skipped",
+                    run_id=str(context.run_id),
+                    logical_table_name=logical_table_name,
+                    reason="not_uploaded",
+                )
+                continue
+
             results[logical_table_name] = self.run_table(
                 logical_table_name=logical_table_name,
                 context=context,
