@@ -437,6 +437,7 @@
   const hrFilterNewJoiners = document.getElementById("hr-filter-new-joiners");
   const hrFilterLeavers = document.getElementById("hr-filter-leavers");
   const hrFilterChanges = document.getElementById("hr-filter-changes");
+  const hrExportButton = document.getElementById("hr-export-button");
   const hrSavedExclusions = document.getElementById("hr-saved-exclusions");
   const hrSavedList = document.getElementById("hr-saved-list");
   const hrConfirmButton = document.getElementById("hr-confirm-button");
@@ -1158,6 +1159,41 @@
   [hrFilterNewJoiners, hrFilterLeavers, hrFilterChanges].forEach((cb) =>
     cb.addEventListener("change", applyHrFilters)
   );
+
+  // Exports exactly what's currently visible (respects the New Joiners /
+  // Leavers / Field Changes filter checkboxes above), so what you export
+  // matches what you're looking at on screen.
+  function csvEscape(value) {
+    const s = value === null || value === undefined ? "" : String(value);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }
+
+  hrExportButton.addEventListener("click", function () {
+    const columns = [
+      ["employee_id", "Employee ID"],
+      ["employee_name", "Full Name"],
+      ["change_type", "Change Type"],
+      ["field", "Field"],
+      ["reason", "Reason"],
+      ["q1_value", "Q1 Value"],
+      ["q2_value", "Q2 Value"],
+    ];
+    const lines = [columns.map(([, label]) => csvEscape(label)).join(",")];
+    hrVisibleChanges.forEach((change) => {
+      lines.push(columns.map(([key]) => csvEscape(change[key])).join(","));
+    });
+    const csvContent = lines.join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const timestamp = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `hr_reconciliation_diff_${timestamp}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  });
 
   function renderHrDiffTable() {
     const tbody = hrDiffTable.querySelector("tbody");
@@ -2325,12 +2361,14 @@
       if (!resp.ok) throw new Error(await readErrorDetail(resp));
       closeCorrectionModal();
       await loadCorrections();
-      correctionsStatus.textContent = editingCorrectionId
-        ? "Correction updated. Click \"Apply All Changes\" to rebuild canonical data and recalculate."
-        : "Correction saved. Click \"Apply All Changes\" to rebuild canonical data and recalculate.";
-      correctionsStatus.hidden = false;
+      const savedVerb = editingCorrectionId ? "Correction updated." : "Correction saved.";
       if (currentRunId) {
+        correctionsStatus.textContent = `${savedVerb} Click "Apply All Changes" to rebuild canonical data and recalculate.`;
+        correctionsStatus.hidden = false;
         correctionsApplyAllButton.hidden = false;
+      } else {
+        correctionsStatus.textContent = `${savedVerb} It will apply the next time you run the pipeline.`;
+        correctionsStatus.hidden = false;
       }
     } catch (err) {
       correctionFormError.textContent = err.message || String(err);
@@ -2351,6 +2389,14 @@
       );
       if (!resp.ok && resp.status !== 204) throw new Error(await readErrorDetail(resp));
       await loadCorrections();
+      if (currentRunId) {
+        correctionsStatus.textContent = "Correction deleted. Click \"Apply All Changes\" to rebuild canonical data and recalculate.";
+        correctionsStatus.hidden = false;
+        correctionsApplyAllButton.hidden = false;
+      } else {
+        correctionsStatus.textContent = "Correction deleted. It will apply the next time you run the pipeline.";
+        correctionsStatus.hidden = false;
+      }
     } catch (err) {
       correctionsError.textContent = err.message || String(err);
       correctionsError.hidden = false;

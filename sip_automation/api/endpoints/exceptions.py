@@ -69,7 +69,7 @@ def _read_upload_dataframe(upload: UploadFile) -> pd.DataFrame:
 
     if suffix not in _ALLOWED_UPLOAD_SUFFIXES:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Upload file must be one of "
                 f"{sorted(_ALLOWED_UPLOAD_SUFFIXES)}."
@@ -86,7 +86,7 @@ def _read_upload_dataframe(upload: UploadFile) -> pd.DataFrame:
             dataframe = pd.read_excel(io.BytesIO(content))
     except Exception as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Unable to read upload file: {exc}",
         ) from exc
 
@@ -242,7 +242,7 @@ def upload_exceptions(
 
     if not payloads:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Upload file has no data rows.",
         )
 
@@ -265,7 +265,7 @@ def upload_exceptions(
 
     if not saved:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 "No valid rows found in upload; existing exceptions "
                 "were not changed. Errors: "

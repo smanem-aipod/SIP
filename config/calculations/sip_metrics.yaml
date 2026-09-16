@@ -424,6 +424,47 @@ lookup_metrics:
     default: 0
 
 
+  guarantee_eligibility_status:
+    enabled: true
+    publish: false
+
+    operation: lookup
+
+    dataset: nacs_guarantee
+
+    source_keys:
+      - employee_id
+
+    reference_keys:
+      - employee_id
+
+    value_column: guarantee_eligibility_status
+
+    cardinality: many_to_one
+    join_type: left
+
+
+  guarantee_fy26_total:
+    enabled: true
+    publish: false
+
+    operation: lookup
+
+    dataset: nacs_guarantee
+
+    source_keys:
+      - employee_id
+
+    reference_keys:
+      - employee_id
+
+    value_column: fy26_total
+
+    cardinality: many_to_one
+    join_type: left
+    default: 0
+
+
   q1_payment_payroll_currency:
     enabled: true
     publish: true
@@ -1858,15 +1899,49 @@ derived_metrics:
   # SIP 50
   # =======================================================
 
+  crossed_gtee_payment_region_currency_calculated:
+    enabled: true
+    publish: false
+
+    operation: divide
+
+    depends_on:
+      - guarantee_fy26_total
+      - payroll_fx_rate
+
+    inputs:
+      numerator:
+        column: guarantee_fy26_total
+
+      denominator:
+        column: payroll_fx_rate
+
+    zero_result: 0
+
   crossed_gtee_payment_region_currency:
     enabled: true
     publish: true
 
     output_name: "Crossed Gtee Payment (Region Currency)"
 
-    operation: constant
+    operation: if_else
 
-    value: 0
+    depends_on:
+      - guarantee_eligibility_status
+      - crossed_gtee_payment_region_currency_calculated
+
+    condition:
+      operator: equals
+      left:
+        column: guarantee_eligibility_status
+      right:
+        value: "Crossed Gtee SIP"
+
+    then:
+      column: crossed_gtee_payment_region_currency_calculated
+
+    else:
+      value: 0
 
 
   # =======================================================

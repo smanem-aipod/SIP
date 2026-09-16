@@ -177,7 +177,6 @@ raw_to_canonical:
     employee_id: employee_id
     preferred_name: preferred_name
     sales_office_description: sales_office_description
-    sales_district_description: sales_district_description
     sales_group_description: sales_group_description
     job_profile: job_profile
     job_profile_for_sip: job_profile_for_sip
@@ -260,11 +259,6 @@ columns:
     max_length: 100
 
   sales_office_description:
-    type: string
-    nullable: true
-    max_length: 200
-
-  sales_district_description:
     type: string
     nullable: true
     max_length: 200
@@ -478,7 +472,6 @@ publish:
     - employee_id
     - preferred_name
     - sales_office_description
-    - sales_district_description
     - sales_group_description
     - job_profile
     - job_profile_for_sip

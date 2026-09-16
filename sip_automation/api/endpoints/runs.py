@@ -121,7 +121,7 @@ def create_run(
 
     if not provided_files:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="At least one source file must be uploaded.",
         )
 
@@ -174,7 +174,7 @@ def create_run(
         ):
             shutil.rmtree(run_directory, ignore_errors=True)
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=str(cause),
             ) from exc
 
@@ -239,7 +239,7 @@ def prepare_canonical_data(
         )
 
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(exc),
         ) from exc
 
@@ -532,7 +532,7 @@ def _save_upload(
 
     if suffix not in _ALLOWED_SUFFIXES:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"{logical_table_name} file must be one of "
                 f"{sorted(_ALLOWED_SUFFIXES)}."
@@ -565,7 +565,7 @@ def _save_upload(
         destination.unlink(missing_ok=True)
 
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"{logical_table_name} file is empty.",
         )
 
