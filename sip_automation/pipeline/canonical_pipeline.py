@@ -290,6 +290,15 @@ class CanonicalPipeline:
                 logical_table_name=logical_table_name,
             )
 
+            # Rebuilding canonical data for an already-processed run (e.g.
+            # after applying a Data Correction) must replace that run's
+            # rows, not append duplicates on top of them - duplicates cause
+            # lookup metrics keyed on employee_id to fail downstream.
+            self.canonical_repository.delete_by_run(
+                logical_table_name,
+                context.run_id,
+            )
+
             inserted_row_count = (
                 self.canonical_repository.insert(
                     logical_table_name,

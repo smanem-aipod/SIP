@@ -525,6 +525,14 @@ body {
   padding: 0 6px;
 }
 
+.admin-group legend small {
+  text-transform: none;
+  font-weight: 400;
+  letter-spacing: normal;
+  color: var(--color-muted);
+  margin-left: 4px;
+}
+
 .admin-tabs {
   display: flex;
   gap: 8px;

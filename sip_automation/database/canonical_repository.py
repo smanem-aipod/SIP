@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 import pandas as pd
-from sqlalchemy import Engine
+from sqlalchemy import Engine, text
 
 from sip_automation.core.config import ConfigManager
 from sip_automation.core.exceptions import (
@@ -38,6 +39,39 @@ class CanonicalRepository(BaseRepository):
             layer="canonical",
             object_name=logical_table_name,
         )
+
+    def delete_by_run(
+        self,
+        logical_table_name: str,
+        run_id: UUID | str,
+    ) -> int:
+        """
+        Delete any existing rows for this pipeline run from a canonical
+        table, so rebuilding canonical data for an already-processed run
+        (e.g. after applying a Data Correction) replaces that run's rows
+        instead of silently appending duplicates on top of them.
+        """
+        schema_name, table_name = self.get_target(
+            logical_table_name
+        )
+
+        try:
+            with self.engine.begin() as connection:
+                result = connection.execute(
+                    text(
+                        f'DELETE FROM "{schema_name}"."{table_name}" '
+                        f'WHERE pipeline_run_id = :run_id'
+                    ),
+                    {"run_id": str(run_id)},
+                )
+                return result.rowcount or 0
+
+        except Exception as exc:
+            raise CanonicalTableWriteError(
+                f"Unable to clear existing canonical rows for "
+                f"{logical_table_name!r} and run {run_id!s} from "
+                f"{schema_name}.{table_name}."
+            ) from exc
 
     def insert(
         self,

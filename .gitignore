@@ -15,6 +15,7 @@ data/
 logs/
 outputs/
 storage/uploads/
+*.log
 
 # OS/editor cruft
 .DS_Store

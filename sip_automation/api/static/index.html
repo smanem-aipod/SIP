@@ -149,6 +149,12 @@
           <li>If you enter an amount, its matching <code>_direction</code>
             column (<code>+</code> or <code>-</code>) is required, or that
             row will be rejected.</li>
+          <li><strong>BP FY26 Rev / BP FY26 GP</strong> only affect the
+            "Target Exceptions" metric shown in results - they do
+            <strong>not</strong> change the payout.</li>
+          <li><strong>YTD FY26 Rev / YTD FY26 GP</strong> are the fields
+            that actually affect payout - they feed "Approved Exceptions
+            in Regional Currency", which flows into the SIP calculation.</li>
           <li>Uploading replaces the entire exceptions list.</li>
           <li><a href="/ui/exceptions_upload_template.csv" download>Download template</a></li>
         </ul>
@@ -173,10 +179,10 @@
               <th>Employee ID</th>
               <th>Employee Name</th>
               <th>Category</th>
-              <th>BP FY26 Rev</th>
-              <th>BP FY26 GP</th>
-              <th>YTD FY26 Rev</th>
-              <th>YTD FY26 GP</th>
+              <th>BP FY26 Rev<br><small>(Target Exceptions only)</small></th>
+              <th>BP FY26 GP<br><small>(Target Exceptions only)</small></th>
+              <th>YTD FY26 Rev<br><small>(affects payout)</small></th>
+              <th>YTD FY26 GP<br><small>(affects payout)</small></th>
               <th># Months Eligible (Override)</th>
               <th>YTD Actual Revenue (Override)</th>
               <th>YTD Actual GP/DOP (Override)</th>
@@ -639,7 +645,7 @@
            magnitude = amount * percentage/100 (or amount, if % is blank),
            then added or subtracted per that field's direction. -->
       <fieldset class="admin-group">
-        <legend>BP FY26 Rev</legend>
+        <legend>BP FY26 Rev <small>(affects "Target Exceptions" only - not payout)</small></legend>
         <div class="file-grid">
           <label class="file-field">
             <span>Amount</span>
@@ -660,7 +666,7 @@
       </fieldset>
 
       <fieldset class="admin-group">
-        <legend>BP FY26 GP</legend>
+        <legend>BP FY26 GP <small>(affects "Target Exceptions" only - not payout)</small></legend>
         <div class="file-grid">
           <label class="file-field">
             <span>Amount</span>
@@ -681,7 +687,7 @@
       </fieldset>
 
       <fieldset class="admin-group">
-        <legend>YTD FY26 Rev</legend>
+        <legend>YTD FY26 Rev <small>(affects payout - "Approved Exceptions in Regional Currency")</small></legend>
         <div class="file-grid">
           <label class="file-field">
             <span>Amount</span>
@@ -702,7 +708,7 @@
       </fieldset>
 
       <fieldset class="admin-group">
-        <legend>YTD FY26 GP</legend>
+        <legend>YTD FY26 GP <small>(affects payout - "Approved Exceptions in Regional Currency")</small></legend>
         <div class="file-grid">
           <label class="file-field">
             <span>Amount</span>
