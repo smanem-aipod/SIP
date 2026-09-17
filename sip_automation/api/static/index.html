@@ -177,6 +177,7 @@
           <input type="text" id="exceptions-search-input"
                  placeholder="Filter by employee name, ID, category, or any value..." />
         </label>
+        <button type="button" id="exceptions-clear-filters-button" class="btn btn-secondary">Clear Filters</button>
       </div>
 
       <div class="table-wrapper">
@@ -195,18 +196,42 @@
                 <div class="th-label">Category</div>
                 <select id="exceptions-filter-category" class="th-filter"><option value="">All</option></select>
               </th>
-              <th>BP FY26 Rev<br><small>(Target Exceptions only)</small></th>
-              <th>BP FY26 GP<br><small>(Target Exceptions only)</small></th>
-              <th>YTD FY26 Rev<br><small>(affects payout)</small></th>
-              <th>YTD FY26 GP<br><small>(affects payout)</small></th>
+              <th>
+                <div class="th-label">BP FY26 Rev<br><small>(Target Exceptions only)</small></div>
+                <select id="exceptions-filter-bp_fy26_rev" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
+              </th>
+              <th>
+                <div class="th-label">BP FY26 GP<br><small>(Target Exceptions only)</small></div>
+                <select id="exceptions-filter-bp_fy26_gp" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
+              </th>
+              <th>
+                <div class="th-label">YTD FY26 Rev<br><small>(affects payout)</small></div>
+                <select id="exceptions-filter-ytd_fy26_rev" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
+              </th>
+              <th>
+                <div class="th-label">YTD FY26 GP<br><small>(affects payout)</small></div>
+                <select id="exceptions-filter-ytd_fy26_gp" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
+              </th>
               <th>
                 <div class="th-label"># Months Eligible (Override)</div>
-                <select id="exceptions-filter-months_eligible_override" class="th-filter"><option value="">All</option></select>
+                <select id="exceptions-filter-months_eligible_override" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
               </th>
-              <th>YTD Actual Revenue (Override)</th>
-              <th>YTD Actual GP/DOP (Override)</th>
-              <th>BP SG&amp;A</th>
-              <th>YTD SG&amp;A</th>
+              <th>
+                <div class="th-label">YTD Actual Revenue (Override)</div>
+                <select id="exceptions-filter-ytd_actual_revenue_override" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
+              </th>
+              <th>
+                <div class="th-label">YTD Actual GP/DOP (Override)</div>
+                <select id="exceptions-filter-ytd_actual_gp_dop_override" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
+              </th>
+              <th>
+                <div class="th-label">BP SG&amp;A</div>
+                <select id="exceptions-filter-bp_sga" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
+              </th>
+              <th>
+                <div class="th-label">YTD SG&amp;A</div>
+                <select id="exceptions-filter-ytd_sga" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
+              </th>
               <th></th>
             </tr>
           </thead>

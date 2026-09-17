@@ -239,10 +239,19 @@
   const exceptionsUploadInput = document.getElementById("exceptions-upload-input");
   const exceptionsTable = document.getElementById("exceptions-table");
   const exceptionsSearchInput = document.getElementById("exceptions-search-input");
+  const exceptionsClearFiltersButton = document.getElementById("exceptions-clear-filters-button");
   const exceptionsFilterEmployeeId = document.getElementById("exceptions-filter-employee_id");
   const exceptionsFilterEmployeeName = document.getElementById("exceptions-filter-employee_name");
   const exceptionsFilterCategory = document.getElementById("exceptions-filter-category");
   const exceptionsFilterMonthsEligible = document.getElementById("exceptions-filter-months_eligible_override");
+  const exceptionsFilterBpRev = document.getElementById("exceptions-filter-bp_fy26_rev");
+  const exceptionsFilterBpGp = document.getElementById("exceptions-filter-bp_fy26_gp");
+  const exceptionsFilterYtdRev = document.getElementById("exceptions-filter-ytd_fy26_rev");
+  const exceptionsFilterYtdGp = document.getElementById("exceptions-filter-ytd_fy26_gp");
+  const exceptionsFilterYtdActualRevenue = document.getElementById("exceptions-filter-ytd_actual_revenue_override");
+  const exceptionsFilterYtdActualGpDop = document.getElementById("exceptions-filter-ytd_actual_gp_dop_override");
+  const exceptionsFilterBpSga = document.getElementById("exceptions-filter-bp_sga");
+  const exceptionsFilterYtdSga = document.getElementById("exceptions-filter-ytd_sga");
 
   const exceptionModal = document.getElementById("exception-modal");
   const exceptionModalTitle = document.getElementById("exception-modal-title");
@@ -478,9 +487,26 @@
 
   // ---- Precompute Exceptions state ----
   let exceptionCategories = FALLBACK_EXCEPTION_CATEGORIES;
+  function makeDefaultExceptionsColumnFilters() {
+    return {
+      employee_id: "",
+      employee_name: "",
+      category: "",
+      months_eligible_override: "",
+      bp_fy26_rev: "",
+      bp_fy26_gp: "",
+      ytd_fy26_rev: "",
+      ytd_fy26_gp: "",
+      ytd_actual_revenue_override: "",
+      ytd_actual_gp_dop_override: "",
+      bp_sga: "",
+      ytd_sga: "",
+    };
+  }
+
   let currentExceptions = [];
   let exceptionsSearchTerm = "";
-  let exceptionsColumnFilters = { employee_id: "", employee_name: "", category: "", months_eligible_override: "" };
+  let exceptionsColumnFilters = makeDefaultExceptionsColumnFilters();
   let editingExceptionId = null;
 
   // ---- Section visibility ----
@@ -1524,7 +1550,7 @@
       exceptionsUploadSummary.hidden = true;
       exceptionsSearchInput.value = "";
       exceptionsSearchTerm = "";
-      exceptionsColumnFilters = { employee_id: "", employee_name: "", category: "", months_eligible_override: "" };
+      exceptionsColumnFilters = makeDefaultExceptionsColumnFilters();
       loadExceptionCategories();
       loadExceptions();
     } else if (showingCorrections) {
@@ -1680,18 +1706,34 @@
     return value === null || value === undefined ? "" : String(value);
   }
 
+  // "exact" columns get a dropdown of the distinct values present in the
+  // data (rebuilt on every load) - good for columns with a small, discrete
+  // set of values. "has" columns get a static Has data/Empty toggle instead,
+  // since these are continuous amount fields where a distinct-value dropdown
+  // would be unusably long - what's actually useful is finding which rows
+  // have that field populated at all.
   const EXCEPTIONS_COLUMN_FILTER_FIELDS = [
-    { key: "employee_id", select: () => exceptionsFilterEmployeeId },
-    { key: "employee_name", select: () => exceptionsFilterEmployeeName },
-    { key: "category", select: () => exceptionsFilterCategory },
-    { key: "months_eligible_override", select: () => exceptionsFilterMonthsEligible },
+    { key: "employee_id", select: () => exceptionsFilterEmployeeId, type: "exact" },
+    { key: "employee_name", select: () => exceptionsFilterEmployeeName, type: "exact" },
+    { key: "category", select: () => exceptionsFilterCategory, type: "exact" },
+    { key: "months_eligible_override", select: () => exceptionsFilterMonthsEligible, type: "has" },
+    { key: "bp_fy26_rev", select: () => exceptionsFilterBpRev, type: "has" },
+    { key: "bp_fy26_gp", select: () => exceptionsFilterBpGp, type: "has" },
+    { key: "ytd_fy26_rev", select: () => exceptionsFilterYtdRev, type: "has" },
+    { key: "ytd_fy26_gp", select: () => exceptionsFilterYtdGp, type: "has" },
+    { key: "ytd_actual_revenue_override", select: () => exceptionsFilterYtdActualRevenue, type: "has" },
+    { key: "ytd_actual_gp_dop_override", select: () => exceptionsFilterYtdActualGpDop, type: "has" },
+    { key: "bp_sga", select: () => exceptionsFilterBpSga, type: "has" },
+    { key: "ytd_sga", select: () => exceptionsFilterYtdSga, type: "has" },
   ];
 
-  // Rebuilds each column filter dropdown with the distinct values present in
-  // the currently loaded exceptions, preserving the current selection when
-  // it's still one of the available options.
+  // Rebuilds each "exact" column filter dropdown with the distinct values
+  // present in the currently loaded exceptions, preserving the current
+  // selection when it's still one of the available options. "has" columns
+  // use a fixed set of options defined in the HTML, so they don't need
+  // rebuilding here.
   function populateExceptionsColumnFilters() {
-    EXCEPTIONS_COLUMN_FILTER_FIELDS.forEach(({ key, select }) => {
+    EXCEPTIONS_COLUMN_FILTER_FIELDS.filter((f) => f.type === "exact").forEach(({ key, select }) => {
       const el = select();
       const values = Array.from(
         new Set(currentExceptions.map((e) => e[key]).filter((v) => v !== null && v !== undefined && v !== ""))
@@ -1741,11 +1783,17 @@
     }));
 
     const visibleRows = rowsWithCells.filter(({ exception, cells }) => {
-      const matchesColumnFilters = EXCEPTIONS_COLUMN_FILTER_FIELDS.every(({ key }) => {
+      const matchesColumnFilters = EXCEPTIONS_COLUMN_FILTER_FIELDS.every(({ key, type }) => {
         const selected = exceptionsColumnFilters[key];
         if (!selected) return true;
         const rawValue = exception[key];
-        const asString = rawValue === null || rawValue === undefined ? "" : String(rawValue);
+        const hasValue = rawValue !== null && rawValue !== undefined && rawValue !== "";
+
+        if (type === "has") {
+          return selected === "has" ? hasValue : !hasValue;
+        }
+
+        const asString = hasValue ? String(rawValue) : "";
         return asString === selected;
       });
       if (!matchesColumnFilters) return false;
@@ -1851,6 +1899,16 @@
       exceptionsColumnFilters[key] = select().value;
       renderExceptionsTable();
     });
+  });
+
+  exceptionsClearFiltersButton.addEventListener("click", function () {
+    exceptionsSearchInput.value = "";
+    exceptionsSearchTerm = "";
+    exceptionsColumnFilters = makeDefaultExceptionsColumnFilters();
+    EXCEPTIONS_COLUMN_FILTER_FIELDS.forEach(({ select }) => {
+      select().value = "";
+    });
+    renderExceptionsTable();
   });
 
   exceptionModalCloseButton.addEventListener("click", closeExceptionModal);
