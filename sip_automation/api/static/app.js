@@ -238,6 +238,7 @@
   const exceptionsUploadButton = document.getElementById("exceptions-upload-button");
   const exceptionsUploadInput = document.getElementById("exceptions-upload-input");
   const exceptionsTable = document.getElementById("exceptions-table");
+  const exceptionsSearchInput = document.getElementById("exceptions-search-input");
 
   const exceptionModal = document.getElementById("exception-modal");
   const exceptionModalTitle = document.getElementById("exception-modal-title");
@@ -474,6 +475,7 @@
   // ---- Precompute Exceptions state ----
   let exceptionCategories = FALLBACK_EXCEPTION_CATEGORIES;
   let currentExceptions = [];
+  let exceptionsSearchTerm = "";
   let editingExceptionId = null;
 
   // ---- Section visibility ----
@@ -1515,6 +1517,8 @@
       exceptionsViewResultsButton.hidden = true;
       exceptionsRecalculateButton.hidden = true;
       exceptionsUploadSummary.hidden = true;
+      exceptionsSearchInput.value = "";
+      exceptionsSearchTerm = "";
       loadExceptionCategories();
       loadExceptions();
     } else if (showingCorrections) {
@@ -1673,10 +1677,9 @@
     const tbody = exceptionsTable.querySelector("tbody");
     tbody.innerHTML = "";
 
-    currentExceptions.forEach((exception) => {
-      const tr = document.createElement("tr");
-
-      const cells = [
+    const rowsWithCells = currentExceptions.map((exception) => ({
+      exception,
+      cells: [
         exception.employee_id,
         exception.employee_name || "",
         exception.category || "",
@@ -1689,7 +1692,29 @@
         formatExceptionOverrideCell(exception, "ytd_actual_gp_dop_override"),
         formatExceptionOverrideCell(exception, "bp_sga"),
         formatExceptionOverrideCell(exception, "ytd_sga"),
-      ];
+      ],
+    }));
+
+    const visibleRows = exceptionsSearchTerm
+      ? rowsWithCells.filter(({ cells }) =>
+          cells.some((value) => String(value || "").toLowerCase().includes(exceptionsSearchTerm))
+        )
+      : rowsWithCells;
+
+    if (visibleRows.length === 0) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 13;
+      td.textContent = exceptionsSearchTerm
+        ? "No exceptions match your search."
+        : "No exceptions have been added yet.";
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+
+    visibleRows.forEach(({ exception, cells }) => {
+      const tr = document.createElement("tr");
 
       cells.forEach((value) => {
         const td = document.createElement("td");
@@ -1761,6 +1786,11 @@
 
   exceptionsAddButton.addEventListener("click", function () {
     openExceptionModal(null);
+  });
+
+  exceptionsSearchInput.addEventListener("input", function () {
+    exceptionsSearchTerm = exceptionsSearchInput.value.trim().toLowerCase();
+    renderExceptionsTable();
   });
 
   exceptionModalCloseButton.addEventListener("click", closeExceptionModal);

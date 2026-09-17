@@ -168,9 +168,16 @@
         <button type="button" id="exceptions-recalculate-button" class="btn-link" hidden>Recalculate Now</button>
       </div>
 
-      <button type="button" id="exceptions-add-button" class="btn btn-primary" style="margin-bottom: 16px;">Add Exception</button>
-      <button type="button" id="exceptions-upload-button" class="btn btn-secondary" style="margin-bottom: 16px;">Upload Exceptions</button>
-      <input type="file" id="exceptions-upload-input" accept=".xlsx,.xls,.csv" hidden />
+      <div class="results-toolbar" style="margin-bottom: 16px;">
+        <button type="button" id="exceptions-add-button" class="btn btn-primary">Add Exception</button>
+        <button type="button" id="exceptions-upload-button" class="btn btn-secondary">Upload Exceptions</button>
+        <input type="file" id="exceptions-upload-input" accept=".xlsx,.xls,.csv" hidden />
+        <label class="toolbar-field toolbar-search">
+          <span>Search</span>
+          <input type="text" id="exceptions-search-input"
+                 placeholder="Filter by employee name, ID, category, or any value..." />
+        </label>
+      </div>
 
       <div class="table-wrapper">
         <table id="exceptions-table">
