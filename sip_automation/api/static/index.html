@@ -183,9 +183,18 @@
         <table id="exceptions-table">
           <thead>
             <tr>
-              <th>Employee ID</th>
-              <th>Employee Name</th>
-              <th>Category</th>
+              <th>
+                <div class="th-label">Employee ID</div>
+                <select id="exceptions-filter-employee_id" class="th-filter"><option value="">All</option></select>
+              </th>
+              <th>
+                <div class="th-label">Employee Name</div>
+                <select id="exceptions-filter-employee_name" class="th-filter"><option value="">All</option></select>
+              </th>
+              <th>
+                <div class="th-label">Category</div>
+                <select id="exceptions-filter-category" class="th-filter"><option value="">All</option></select>
+              </th>
               <th>BP FY26 Rev<br><small>(Target Exceptions only)</small></th>
               <th>BP FY26 GP<br><small>(Target Exceptions only)</small></th>
               <th>YTD FY26 Rev<br><small>(affects payout)</small></th>

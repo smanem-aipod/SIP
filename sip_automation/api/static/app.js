@@ -239,6 +239,9 @@
   const exceptionsUploadInput = document.getElementById("exceptions-upload-input");
   const exceptionsTable = document.getElementById("exceptions-table");
   const exceptionsSearchInput = document.getElementById("exceptions-search-input");
+  const exceptionsFilterEmployeeId = document.getElementById("exceptions-filter-employee_id");
+  const exceptionsFilterEmployeeName = document.getElementById("exceptions-filter-employee_name");
+  const exceptionsFilterCategory = document.getElementById("exceptions-filter-category");
 
   const exceptionModal = document.getElementById("exception-modal");
   const exceptionModalTitle = document.getElementById("exception-modal-title");
@@ -476,6 +479,7 @@
   let exceptionCategories = FALLBACK_EXCEPTION_CATEGORIES;
   let currentExceptions = [];
   let exceptionsSearchTerm = "";
+  let exceptionsColumnFilters = { employee_id: "", employee_name: "", category: "" };
   let editingExceptionId = null;
 
   // ---- Section visibility ----
@@ -1519,6 +1523,7 @@
       exceptionsUploadSummary.hidden = true;
       exceptionsSearchInput.value = "";
       exceptionsSearchTerm = "";
+      exceptionsColumnFilters = { employee_id: "", employee_name: "", category: "" };
       loadExceptionCategories();
       loadExceptions();
     } else if (showingCorrections) {
@@ -1643,6 +1648,7 @@
 
       const data = await response.json();
       currentExceptions = data.exceptions || [];
+      populateExceptionsColumnFilters();
       renderExceptionsTable();
     } catch (err) {
       exceptionsError.textContent = err.message || String(err);
@@ -1673,6 +1679,43 @@
     return value === null || value === undefined ? "" : String(value);
   }
 
+  const EXCEPTIONS_COLUMN_FILTER_FIELDS = [
+    { key: "employee_id", select: () => exceptionsFilterEmployeeId },
+    { key: "employee_name", select: () => exceptionsFilterEmployeeName },
+    { key: "category", select: () => exceptionsFilterCategory },
+  ];
+
+  // Rebuilds each column filter dropdown with the distinct values present in
+  // the currently loaded exceptions, preserving the current selection when
+  // it's still one of the available options.
+  function populateExceptionsColumnFilters() {
+    EXCEPTIONS_COLUMN_FILTER_FIELDS.forEach(({ key, select }) => {
+      const el = select();
+      const values = Array.from(
+        new Set(currentExceptions.map((e) => e[key]).filter((v) => v !== null && v !== undefined && v !== ""))
+      ).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
+
+      const previousValue = exceptionsColumnFilters[key];
+      el.innerHTML = "";
+
+      const allOption = document.createElement("option");
+      allOption.value = "";
+      allOption.textContent = "All";
+      el.appendChild(allOption);
+
+      values.forEach((value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = value;
+        el.appendChild(option);
+      });
+
+      const stillValid = previousValue && values.includes(previousValue);
+      exceptionsColumnFilters[key] = stillValid ? previousValue : "";
+      el.value = exceptionsColumnFilters[key];
+    });
+  }
+
   function renderExceptionsTable() {
     const tbody = exceptionsTable.querySelector("tbody");
     tbody.innerHTML = "";
@@ -1695,17 +1738,23 @@
       ],
     }));
 
-    const visibleRows = exceptionsSearchTerm
-      ? rowsWithCells.filter(({ cells }) =>
-          cells.some((value) => String(value || "").toLowerCase().includes(exceptionsSearchTerm))
-        )
-      : rowsWithCells;
+    const visibleRows = rowsWithCells.filter(({ exception, cells }) => {
+      const matchesColumnFilters = EXCEPTIONS_COLUMN_FILTER_FIELDS.every(({ key }) => {
+        const selected = exceptionsColumnFilters[key];
+        if (!selected) return true;
+        return String(exception[key] || "") === selected;
+      });
+      if (!matchesColumnFilters) return false;
+
+      if (!exceptionsSearchTerm) return true;
+      return cells.some((value) => String(value || "").toLowerCase().includes(exceptionsSearchTerm));
+    });
 
     if (visibleRows.length === 0) {
       const tr = document.createElement("tr");
       const td = document.createElement("td");
       td.colSpan = 13;
-      td.textContent = exceptionsSearchTerm
+      td.textContent = exceptionsSearchTerm || exceptionsColumnFilters.employee_id || exceptionsColumnFilters.employee_name || exceptionsColumnFilters.category
         ? "No exceptions match your search."
         : "No exceptions have been added yet.";
       tr.appendChild(td);
@@ -1791,6 +1840,13 @@
   exceptionsSearchInput.addEventListener("input", function () {
     exceptionsSearchTerm = exceptionsSearchInput.value.trim().toLowerCase();
     renderExceptionsTable();
+  });
+
+  EXCEPTIONS_COLUMN_FILTER_FIELDS.forEach(({ key, select }) => {
+    select().addEventListener("change", function () {
+      exceptionsColumnFilters[key] = select().value;
+      renderExceptionsTable();
+    });
   });
 
   exceptionModalCloseButton.addEventListener("click", closeExceptionModal);
