@@ -2033,7 +2033,20 @@
 
       closeExceptionModal();
       await loadExceptions();
-      await recalculateAndShowResults(clickedApply);
+
+      if (clickedApply) {
+        await recalculateAndShowResults(true);
+        return;
+      }
+
+      // "Save" only persists the exception - it must NOT recalculate or
+      // change results. Only "Apply" (or "Recalculate Now") should do that.
+      if (currentRunId) {
+        exceptionsStatus.textContent =
+          "Saved. Results are not updated yet - click \"Recalculate Now\" to apply this change.";
+        exceptionsStatus.hidden = false;
+        exceptionsRecalculateButton.hidden = false;
+      }
     } catch (err) {
       exceptionFormError.textContent = err.message || String(err);
       exceptionFormError.hidden = false;
