@@ -537,6 +537,10 @@
     uploadSection.hidden = true;
     progressSection.hidden = true;
     resultsSection.hidden = true;
+    // The Precompute Exceptions tab widens .app-main (see showAdminTab) -
+    // clear that here so switching to any other section/tab never inherits
+    // the extra width.
+    document.querySelector(".app-main").classList.remove("app-main--wide-exceptions");
     // Close any open modals so they don't float over the new section
     rowModal.hidden = true;
     exceptionModal.hidden = true;
@@ -1538,6 +1542,10 @@
     const showingCam = tab === "cam";
     const showingHrExcl = tab === "hr-exclusions";
     const showingParameters = !showingExceptions && !showingCorrections && !showingCam && !showingHrExcl;
+
+    // Widen the page only for the Precompute Exceptions tab (13 columns) -
+    // every other admin tab and page section keeps the normal 1100px width.
+    document.querySelector(".app-main").classList.toggle("app-main--wide-exceptions", showingExceptions);
 
     adminParametersPanel.hidden = !showingParameters;
     exceptionsPanel.hidden = !showingExceptions;

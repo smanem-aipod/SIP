@@ -38,6 +38,15 @@ body {
   margin: 0 auto;
 }
 
+/* Precompute Exceptions has 13 columns (Employee ID/Name/Category + 8 amount
+   columns + filters/actions) and needs more horizontal room than the other
+   admin tabs to avoid the table's own inner scrollbar. Toggled on/off
+   .app-main by showAdminTab() (app.js) only while that tab is active, so it
+   doesn't widen any other admin tab or page section. */
+.app-main.app-main--wide-exceptions {
+  max-width: 1500px;
+}
+
 .login-screen {
   min-height: 100vh;
 }
