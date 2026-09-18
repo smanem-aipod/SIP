@@ -10,6 +10,9 @@ from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
 
 from sip_automation.core.hr_exclusions import HRExclusionsStore
+from sip_automation.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 # sip_automation/api/endpoints/ → go up 4 levels to project root (sip-automation/)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -164,6 +167,20 @@ def _values_equal(v1, v2) -> bool:
     return v1 == v2
 
 
+# Yes/No tracked fields where a blank/NaN cell means "No" in at least one
+# real HR export convention (e.g. this project's Q2 export leaves "On
+# Leave" blank for everyone NOT on leave, while Q1's export explicitly
+# writes "No" for the same state) - without normalizing this, every
+# employee whose value is "No" in one file and blank in the other looks
+# like a field change, even though nothing actually changed (see DEF-021).
+_YES_NO_FIELDS = {"Active (Yes/No)", "On Leave", "Retired (Yes/No)"}
+
+
+def _normalize_yes_no(value) -> str:
+    text = "" if pd.isna(value) else str(value).strip().lower()
+    return "Yes" if text in ("yes", "y", "true", "1") else "No"
+
+
 def _run_reconciliation(q1: pd.DataFrame, q2: pd.DataFrame) -> dict:
     changes: list[dict] = []
 
@@ -259,7 +276,10 @@ def _run_reconciliation(q1: pd.DataFrame, q2: pd.DataFrame) -> dict:
         full_name = str(q2_row.get(_NAME_COL, "") or "")
         for tracked_name, q1_col, q2_col in resolved_pairs:
             v1, v2 = q1_row[q1_col], q2_row[q2_col]
-            if _values_equal(v1, v2):
+            cmp1, cmp2 = v1, v2
+            if tracked_name in _YES_NO_FIELDS:
+                cmp1, cmp2 = _normalize_yes_no(v1), _normalize_yes_no(v2)
+            if _values_equal(cmp1, cmp2):
                 continue
             metric, reason = _FIELD_DETAILS.get(tracked_name, ("Other", f"{tracked_name} changed"))
             changes.append({
