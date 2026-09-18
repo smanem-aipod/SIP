@@ -22,6 +22,18 @@
   box-sizing: border-box;
 }
 
+/* This codebase has repeatedly hit the same bug (see the .login-screen and
+   .modal-overlay fixes below): an unconditional "display" on a class (e.g.
+   .btn, .banner) silently overrides the browser's default "display: none"
+   for [hidden], since author rules always beat the UA stylesheet regardless
+   of specificity. That leaves elements the JS marked hidden="" still
+   rendered - e.g. "Apply All Changes" showing up even with zero corrections.
+   One global, high-priority rule here fixes every current and future case
+   instead of patching each class with :not([hidden]) one at a time. */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
