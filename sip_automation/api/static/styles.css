@@ -860,6 +860,14 @@ tbody tr:hover {
   justify-content: center;
   padding: 24px;
   backdrop-filter: blur(2px);
+  /* Real fix for the modal not covering everything: without an explicit
+     z-index, position: fixed here still stacks by DOM order among
+     positioned elements. Table headers use position: sticky (see "thead
+     th" below) and appear later in the document than this modal markup,
+     so their sticky header was painting on top of the modal instead of
+     being covered by it - looked like another tab's content leaking
+     through. z-index guarantees the modal always wins. */
+  z-index: 1000;
 }
 
 /* Fix: without this, an unconditional "display: flex" here overrode the
