@@ -68,6 +68,19 @@ _FIELD_DETAILS: dict[str, tuple[str, str]] = {
     "Retired (Yes/No)": ("Employment Status", "Retirement status changed"),
 }
 
+# Known alternate header names seen in real HR exports for a tracked
+# field, tried when the exact normalized name isn't found (see
+# _resolve_column). Keep this narrow and explicit rather than a fuzzy
+# substring match, which would risk mis-matching an unrelated column for
+# one of the other ~18 tracked fields.
+_COLUMN_ALIASES: dict[str, tuple[str, ...]] = {
+    "Cost Center - ID": (
+        "Local Cost Center ID",
+        "Local Cost Center - ID",
+        "Cost Center ID",
+    ),
+}
+
 
 # ------------------------------------------------------------------ #
 # Helpers
@@ -93,6 +106,19 @@ def _resolve_column(
     for actual in actual_columns:
         if _normalize_header(actual) == normalized_expected:
             return actual
+
+    # Some tracked fields go by a noticeably different name depending on
+    # which HR export generated the file (e.g. a raw Workday pull says
+    # "Cost Center - ID", but this project's own HR sheet calls the same
+    # thing "Local Cost Center ID") - exact normalized matching alone
+    # treats that as two different columns and silently drops the field
+    # from comparison (see DEF-019). Try known aliases before giving up.
+    for alias in _COLUMN_ALIASES.get(expected_name, ()):
+        normalized_alias = _normalize_header(alias)
+        for actual in actual_columns:
+            if _normalize_header(actual) == normalized_alias:
+                return actual
+
     return None
 
 

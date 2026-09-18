@@ -466,6 +466,7 @@
   const hrQ2FileInput = document.getElementById("hr-q2-file");
   const hrCompareButton = document.getElementById("hr-compare-button");
   const hrReconError = document.getElementById("hr-recon-error");
+  const hrReconUnmatchedWarning = document.getElementById("hr-recon-unmatched-warning");
   const hrDiffSection = document.getElementById("hr-diff-section");
   const hrSummaryBar = document.getElementById("hr-summary-bar");
   const hrDiffTable = document.getElementById("hr-diff-table");
@@ -1183,6 +1184,7 @@
     }
 
     hrReconError.hidden = true;
+    hrReconUnmatchedWarning.hidden = true;
     hrCompareButton.disabled = true;
     hrCompareButton.textContent = "Comparing…";
     hrDiffSection.hidden = true;
@@ -1199,6 +1201,21 @@
 
       const data = await resp.json();
       hrAllChanges = data.changes || [];
+
+      // The backend can't find a matching column in one or both files for
+      // a tracked field (e.g. the real header is "Local Cost Center ID"
+      // instead of "Cost Center - ID") - when that happens it skips that
+      // field entirely for every employee instead of erroring, so changes
+      // in it look identical to "nothing changed" unless this is surfaced.
+      const unmatched = data.unmatched_columns || [];
+      if (unmatched.length > 0) {
+        hrReconUnmatchedWarning.textContent =
+          `Could not match these tracked fields to a column in one or both files, so changes to them were NOT compared: ${unmatched.join(", ")}. ` +
+          `Check the file headers if you expected changes here.`;
+        hrReconUnmatchedWarning.hidden = false;
+      } else {
+        hrReconUnmatchedWarning.hidden = true;
+      }
       // Pre-select ALL employees with changes for exclusion — the typical
       // workflow is to exclude changed employees from calculations until
       // changes are reviewed. Users can uncheck any they want to keep in.
