@@ -144,7 +144,17 @@ def _load_roster(upload: UploadFile) -> pd.DataFrame:
     if key_col != _KEY_COL:
         df = df.rename(columns={key_col: _KEY_COL})
 
-    df[_KEY_COL] = df[_KEY_COL].astype(str).str.strip()
+    # Normalize to uppercase, matching the convention used everywhere else
+    # Employee ID is compared (the exclusions store and the pipeline's
+    # HR-exclusion filter both uppercase before comparing - see
+    # HRExclusionsStore/save_exclusions/_apply_hr_exclusions). Without this,
+    # if Q1 and Q2 come from exports with different ID casing (e.g.
+    # "EMP_001" vs "emp_001"), isin() below matches nothing: every Q2
+    # employee looks like a New Joiner and every Q1 employee looks like a
+    # Leaver, the UI pre-selects the entire roster for exclusion by
+    # default, and saving that wipes out the next run's results entirely
+    # (see DEF-020 - mass "all employees excluded" / "no results" bug).
+    df[_KEY_COL] = df[_KEY_COL].astype(str).str.strip().str.upper()
     return df.drop_duplicates(subset=_KEY_COL, keep="last")
 
 
@@ -267,6 +277,20 @@ def _run_reconciliation(q1: pd.DataFrame, q2: pd.DataFrame) -> dict:
     rehires_movements = sum(1 for c in changes if c["change_type"] == "Rehire / Movement")
     leavers = sum(1 for c in changes if c["change_type"] == "Leaver")
     changed_ids = {c["employee_id"] for c in changes if c["change_type"] == "Field Change"}
+    employees_affected = len({c["employee_id"] for c in changes})
+
+    # Sanity check: if an unusually large share of the combined roster shows
+    # up as "changed" (new joiner/leaver/rehire), that's far more likely to
+    # mean Q1/Q2 don't line up on Employee ID (wrong file, ID format/casing
+    # difference, wrong quarter, etc.) than an actual mass turnover - and
+    # since the UI pre-selects every changed employee for exclusion by
+    # default, an undetected mismatch here silently excludes the whole
+    # roster from calculations (see DEF-020). Surface it explicitly instead
+    # of letting it pass as a normal-looking diff.
+    total_roster = len(set(q1[_KEY_COL]) | set(q2[_KEY_COL]))
+    high_change_ratio = (
+        total_roster > 0 and employees_affected / total_roster >= 0.5
+    )
 
     return {
         "changes": changes,
@@ -275,7 +299,9 @@ def _run_reconciliation(q1: pd.DataFrame, q2: pd.DataFrame) -> dict:
             "rehires_movements": rehires_movements,
             "leavers": leavers,
             "field_changes": len(changed_ids),
-            "employees_affected": len({c["employee_id"] for c in changes}),
+            "employees_affected": employees_affected,
+            "total_roster": total_roster,
+            "high_change_ratio": high_change_ratio,
         },
         # Surfaced so a mismatched export column shows up as a visible
         # warning instead of silently vanishing from the diff, like

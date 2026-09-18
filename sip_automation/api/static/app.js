@@ -467,6 +467,7 @@
   const hrCompareButton = document.getElementById("hr-compare-button");
   const hrReconError = document.getElementById("hr-recon-error");
   const hrReconUnmatchedWarning = document.getElementById("hr-recon-unmatched-warning");
+  const hrReconHighChangeWarning = document.getElementById("hr-recon-high-change-warning");
   const hrDiffSection = document.getElementById("hr-diff-section");
   const hrSummaryBar = document.getElementById("hr-summary-bar");
   const hrDiffTable = document.getElementById("hr-diff-table");
@@ -1122,6 +1123,8 @@
     hrVisibleChanges = [];
     hrExcludedIds = new Set();
     hrReconError.hidden = true;
+    hrReconUnmatchedWarning.hidden = true;
+    hrReconHighChangeWarning.hidden = true;
     hrDiffSection.hidden = true;
     hrConfirmButton.hidden = true;
     hrQ1FileInput.value = "";
@@ -1185,6 +1188,7 @@
 
     hrReconError.hidden = true;
     hrReconUnmatchedWarning.hidden = true;
+    hrReconHighChangeWarning.hidden = true;
     hrCompareButton.disabled = true;
     hrCompareButton.textContent = "Comparing…";
     hrDiffSection.hidden = true;
@@ -1223,6 +1227,25 @@
 
       // Render summary bar
       const s = data.summary || {};
+
+      // If most of the roster shows up as changed, Q1/Q2 almost certainly
+      // don't line up on Employee ID (wrong file, wrong quarter, ID format
+      // mismatch, etc.) rather than genuine mass turnover. Since everything
+      // above just pre-selected the whole roster for exclusion, saving as-is
+      // would wipe out every future calculation run - so block that from
+      // happening silently (see DEF-020).
+      if (s.high_change_ratio) {
+        hrReconHighChangeWarning.textContent =
+          `${s.employees_affected} of ${s.total_roster} employees show up as changed in this comparison. ` +
+          `That's unusually high and usually means the two files don't actually line up on Employee ID ` +
+          `(wrong file, wrong quarter, or an ID formatting difference) — not real turnover. ` +
+          `Every employee listed below is currently pre-selected for exclusion; saving this as-is will exclude ` +
+          `them from all future calculations. Please double-check you uploaded the correct Q1 and Q2 files before continuing.`;
+        hrReconHighChangeWarning.hidden = false;
+      } else {
+        hrReconHighChangeWarning.hidden = true;
+      }
+
       hrSummaryBar.innerHTML =
         `<span class="hr-badge hr-badge-new">New Joiners: ${s.new_joiners || 0}</span>` +
         `<span class="hr-badge hr-badge-rehire">Rehire/Movement: ${s.rehires_movements || 0}</span>` +
