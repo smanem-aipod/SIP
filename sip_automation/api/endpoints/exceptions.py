@@ -21,8 +21,12 @@ from sip_automation.core.exceptions import (
 )
 from sip_automation.core.logging import get_logger
 from sip_automation.core.precompute_exceptions import (
+    AMOUNT_FIELDS,
     EXCEPTION_UPLOAD_FIELDS,
+    OVERRIDE_FIELDS,
+    PERCENTAGE_FIELDS,
     PRECOMPUTE_EXCEPTION_CATEGORIES,
+    SGA_FIELDS,
     PrecomputeException,
     PrecomputeExceptionsStore,
 )
@@ -50,15 +54,54 @@ def _normalize_header(header: Any) -> str:
     )
 
 
-def _clean_cell(value: Any) -> Any:
+# Fields whose upload column must parse as a number. Spreadsheet exports
+# commonly format these with thousands separators (commas, or dots in
+# some locales), a leading "$", or a lone dash/blank as a "no value"
+# placeholder - none of which `float()` accepts directly.
+_NUMERIC_UPLOAD_FIELDS = frozenset(
+    {*AMOUNT_FIELDS, *PERCENTAGE_FIELDS, *OVERRIDE_FIELDS, *SGA_FIELDS}
+)
+
+
+def _clean_numeric_text(text: str) -> str | None:
+    if text.lower() in {"-", "--", "n/a", "na"}:
+        return None
+
+    negative = text.startswith("(") and text.endswith(")")
+    if negative:
+        text = text[1:-1].strip()
+
+    text = text.replace(",", "").replace("$", "").replace("%", "")
+
+    # Some locales use "." as the thousands separator (e.g. "19.508.411").
+    # A genuine decimal value only ever has one ".", so only strip dots
+    # when there's more than one.
+    if text.count(".") > 1:
+        text = text.replace(".", "")
+
+    if not text:
+        return None
+
+    if negative and not text.startswith("-"):
+        text = f"-{text}"
+
+    return text
+
+
+def _clean_cell(value: Any, field: str | None = None) -> Any:
     if value is None:
         return None
 
     if isinstance(value, float) and pd.isna(value):
         return None
 
-    if isinstance(value, str) and not value.strip():
-        return None
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        if field in _NUMERIC_UPLOAD_FIELDS:
+            return _clean_numeric_text(text)
+        return text
 
     return value
 
@@ -125,7 +168,7 @@ def _parse_upload_rows(
         payload: dict[str, Any] = {"_row_number": row_number}
 
         for field in EXCEPTION_UPLOAD_FIELDS:
-            payload[field] = _clean_cell(record.get(field))
+            payload[field] = _clean_cell(record.get(field), field)
 
         payloads.append(payload)
 
