@@ -486,6 +486,12 @@
   let editingCamOverrideId = null;
 
   let hrExclusions = [];    // current list of excluded employee IDs
+  // True once an exclusion has been added/removed since the last load or
+  // successful recalculate - i.e. there's actually something new for
+  // Recalculate to apply. Without this, Recalculate showed just because a
+  // run existed, even with zero pending changes (see updateCorrectionsApplyButtonVisibility
+  // above for the same "only show when there's something to apply" pattern).
+  let hrExclusionsDirty = false;
 
   // ---- Data Corrections state ----
   let currentCorrections = [];
@@ -2308,6 +2314,7 @@
       if (!resp.ok) throw new Error(await readErrorDetail(resp));
       const data = await resp.json();
       hrExclusions = data.excluded_employee_ids || [];
+      hrExclusionsDirty = false;
       renderHrExclusions();
     } catch (err) {
       hrExclError.textContent = err.message || String(err);
@@ -2350,6 +2357,7 @@
         removeBtn.style.opacity = "0.6";
         hrExclusions = hrExclusions.filter((id) => id !== empId);
         await saveHrExclusions();
+        hrExclusionsDirty = true;
         renderHrExclusions();
         hrExclStatus.textContent = `${empId} removed from exclusions. Click Recalculate to update results.`;
         hrExclStatus.hidden = false;
@@ -2360,7 +2368,7 @@
     });
 
     hrExclEmpty.hidden = hrExclusions.length > 0;
-    hrExclRecalcButton.hidden = !currentRunId;
+    hrExclRecalcButton.hidden = !(currentRunId && hrExclusionsDirty);
   }
 
   async function saveHrExclusions() {
@@ -2381,6 +2389,7 @@
     }
     hrExclusions.push(id);
     await saveHrExclusions();
+    hrExclusionsDirty = true;
     renderHrExclusions();
   });
 
@@ -2412,6 +2421,8 @@
 
       hrExclStatus.textContent = "✓ Done. Results updated with the new exclusion list.";
       hrExclViewResultsButton.hidden = false;
+      hrExclusionsDirty = false;
+      renderHrExclusions();
     } catch (err) {
       hrExclStatus.hidden = true;
       hrExclError.textContent = `Recalculation failed: ${err.message || err}`;
