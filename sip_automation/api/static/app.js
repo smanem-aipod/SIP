@@ -3349,7 +3349,7 @@
         calculationsResult.role_row_counts
       );
 
-      parametersStatus.textContent = `Parameters applied successfully. Applied: ${appliedParams}`;
+      parametersStatus.textContent = "Parameters applied successfully.";
       parametersStatus.hidden = false;
       parametersError.hidden = true;
 
