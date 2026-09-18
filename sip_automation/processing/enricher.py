@@ -783,31 +783,48 @@ class EnrichmentEngine:
                 index=result.index,
             )
 
+            # Group rows by which optional columns are present using
+            # pandas' native groupby on the boolean presence columns
+            # themselves, instead of two row-wise .apply() calls (one to
+            # build a per-row tuple "signature", one per unique signature
+            # to rebuild its mask via .apply(lambda value: value ==
+            # signature)). Both were O(rows) Python-level calls that took
+            # ~30s alone on a 150k-row sales table; groupby computes the
+            # same grouping in C and is effectively instant at that size.
             if optional_presence.empty:
-                signatures = pd.Series(
-                    [tuple()] * len(result),
-                    index=result.index,
-                )
+                signature_groups = [
+                    (tuple(), result.index),
+                ]
             else:
-                signatures = optional_presence.apply(
-                    lambda row: tuple(
+                optional_columns = list(
+                    optional_presence.columns
+                )
+                signature_groups = []
+                for key, index in optional_presence.groupby(
+                    optional_columns,
+                    sort=False,
+                ).groups.items():
+                    key_tuple = (
+                        key
+                        if isinstance(key, tuple)
+                        else (key,)
+                    )
+                    signature = tuple(
                         column_name
-                        for column_name, present
-                        in row.items()
+                        for column_name, present in zip(
+                            optional_columns, key_tuple
+                        )
                         if bool(present)
-                    ),
-                    axis=1,
-                )
+                    )
+                    signature_groups.append(
+                        (signature, index)
+                    )
 
-            for signature in signatures.unique():
-
-                assignment_mask = signatures.apply(
-                    lambda value: value == signature
-                )
+            for signature, assignment_index in signature_groups:
 
                 assignment_subset = (
                     result.loc[
-                        assignment_mask
+                        assignment_index
                     ]
                     .copy()
                 )

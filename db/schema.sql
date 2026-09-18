@@ -602,6 +602,36 @@ ALTER TABLE ONLY raw.sales
 
 
 --
+-- Name: raw/canonical pipeline_run_id indexes; Type: INDEX
+--
+-- Every raw/canonical read, and CanonicalRepository.delete_by_run() before
+-- a canonical rebuild, filters by "WHERE pipeline_run_id = :run_id". None
+-- of these 12 tables had an index on that column - only on unrelated
+-- surrogate keys (e.g. sales_target_sk) - so those filters were full
+-- table scans. In this dev database raw.sales/canonical.sales alone had
+-- grown to ~5-6 million rows across accumulated test runs, making a single
+-- "Apply All Changes" (Data Corrections) or Recalculate take 30+ seconds
+-- for a run that only touches ~150k of those rows. These indexes make
+-- every such read/delete effectively O(rows for this run) instead of
+-- O(rows for every run ever executed).
+--
+
+CREATE INDEX IF NOT EXISTS ix_raw_bdm_pipeline_run_id ON raw.bdm (pipeline_run_id);
+CREATE INDEX IF NOT EXISTS ix_raw_bp_pipeline_run_id ON raw.bp (pipeline_run_id);
+CREATE INDEX IF NOT EXISTS ix_raw_employee_pipeline_run_id ON raw.employee (pipeline_run_id);
+CREATE INDEX IF NOT EXISTS ix_raw_nacs_guarantee_pipeline_run_id ON raw.nacs_guarantee (pipeline_run_id);
+CREATE INDEX IF NOT EXISTS ix_raw_sales_pipeline_run_id ON raw.sales (pipeline_run_id);
+CREATE INDEX IF NOT EXISTS ix_raw_ytd_payments_pipeline_run_id ON raw.ytd_payments (pipeline_run_id);
+
+CREATE INDEX IF NOT EXISTS ix_canonical_bdm_pipeline_run_id ON canonical.bdm (pipeline_run_id);
+CREATE INDEX IF NOT EXISTS ix_canonical_bp_pipeline_run_id ON canonical.bp (pipeline_run_id);
+CREATE INDEX IF NOT EXISTS ix_canonical_employee_pipeline_run_id ON canonical.employee (pipeline_run_id);
+CREATE INDEX IF NOT EXISTS ix_canonical_nacs_guarantee_pipeline_run_id ON canonical.nacs_guarantee (pipeline_run_id);
+CREATE INDEX IF NOT EXISTS ix_canonical_sales_pipeline_run_id ON canonical.sales (pipeline_run_id);
+CREATE INDEX IF NOT EXISTS ix_canonical_ytd_payments_pipeline_run_id ON canonical.ytd_payments (pipeline_run_id);
+
+
+--
 -- PostgreSQL database dump complete
 --
 
