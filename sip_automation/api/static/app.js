@@ -2442,10 +2442,20 @@
       const data = await resp.json();
       currentCorrections = data.corrections || [];
       renderCorrectionsTable();
+      updateCorrectionsApplyButtonVisibility();
     } catch (err) {
       correctionsError.textContent = err.message || String(err);
       correctionsError.hidden = false;
     }
+  }
+
+  // "Apply All Changes" must stay visible whenever there are corrections
+  // that haven't been (re)applied to the current run - not just right after
+  // an add/edit/delete in this same page load. Otherwise switching tabs or
+  // reloading the page makes the button disappear even though the
+  // corrections on file still haven't been applied yet.
+  function updateCorrectionsApplyButtonVisibility() {
+    correctionsApplyAllButton.hidden = !(currentRunId && currentCorrections.length > 0);
   }
 
   function renderCorrectionsTable() {
@@ -2620,7 +2630,6 @@
       if (currentRunId) {
         correctionsStatus.textContent = `${savedVerb} Click "Apply All Changes" to rebuild canonical data and recalculate.`;
         correctionsStatus.hidden = false;
-        correctionsApplyAllButton.hidden = false;
       } else {
         correctionsStatus.textContent = `${savedVerb} It will apply the next time you run the pipeline.`;
         correctionsStatus.hidden = false;
@@ -2647,7 +2656,6 @@
       if (currentRunId) {
         correctionsStatus.textContent = "Correction deleted. Click \"Apply All Changes\" to rebuild canonical data and recalculate.";
         correctionsStatus.hidden = false;
-        correctionsApplyAllButton.hidden = false;
       } else {
         correctionsStatus.textContent = "Correction deleted. It will apply the next time you run the pipeline.";
         correctionsStatus.hidden = false;
