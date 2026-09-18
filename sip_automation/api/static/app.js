@@ -2222,8 +2222,9 @@
     if (!file) return;
 
     const confirmed = window.confirm(
-      "Uploading a file replaces the ENTIRE exceptions list - all existing " +
-        "exceptions will be removed and replaced with the contents of this file. Continue?"
+      "Uploading will add or update the employees in this file. If an " +
+        "employee in the file already has an exception, the file's values " +
+        "will replace it. Other existing exceptions are kept. Continue?"
     );
     if (!confirmed) {
       exceptionsUploadInput.value = "";
@@ -2252,8 +2253,10 @@
       const result = await response.json();
       renderExceptionUploadSummary(result);
 
-      // Uploading replaces the entire exceptions list, so any staged
-      // deletions no longer refer to real rows - drop them.
+      // Uploading merges by employee_id (see merge_from_upload) - IDs
+      // present in this upload get new row ids, so any staged deletions
+      // may no longer refer to real rows. Simplest to just drop them; the
+      // fresh loadExceptions() below re-renders the current state anyway.
       exceptionsPendingDeleteIds.clear();
       await loadExceptions();
       renderPendingDeletions();

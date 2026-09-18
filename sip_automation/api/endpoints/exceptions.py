@@ -153,10 +153,10 @@ def _parse_upload_rows(
 ) -> list[dict[str, Any]]:
     """
     Parse the wide-format upload (one row per employee, one column per
-    field) into payload dicts that PrecomputeExceptionsStore.replace_all()
-    understands. Unrecognized columns are ignored; blank cells become None
-    so admins can leave any field that doesn't apply to a given employee
-    empty.
+    field) into payload dicts that
+    PrecomputeExceptionsStore.merge_from_upload() understands. Unrecognized
+    columns are ignored; blank cells become None so admins can leave any
+    field that doesn't apply to a given employee empty.
     """
 
     dataframe = _read_upload_dataframe(upload)
@@ -270,12 +270,15 @@ def upload_exceptions(
     changed_by: str | None = None,
 ) -> PrecomputeExceptionUploadResponse:
     """
-    Bulk-replace the entire precompute exceptions list from an uploaded
-    Excel/CSV file (wide format: one row per employee, one column per
-    field - same fields as the single-row Add Exception modal). Admins
-    leave any column blank that doesn't apply to a given employee. Rows
-    that fail validation are skipped and reported (partial success); if
-    every row fails, nothing is changed on disk.
+    Bulk-add/update the employees listed in the uploaded Excel/CSV file
+    (wide format: one row per employee, one column per field - same fields
+    as the single-row Add Exception modal). Exceptions for employees NOT in
+    the file - including manually-added ones - are left untouched. If an
+    employee does appear in the file, their existing exception(s) are
+    replaced by what's in the file for that employee. Admins leave any
+    column blank that doesn't apply to a given employee. Rows that fail
+    validation are skipped and reported (partial success); if every row
+    fails, nothing is changed on disk.
     """
 
     try:
@@ -290,7 +293,7 @@ def upload_exceptions(
         )
 
     try:
-        saved, errors = PrecomputeExceptionsStore().replace_all(
+        saved, errors = PrecomputeExceptionsStore().merge_from_upload(
             payloads,
             changed_by=changed_by,
         )

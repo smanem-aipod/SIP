@@ -602,7 +602,7 @@ class PrecomputeExceptionsStore:
 
         return self._from_dict(updated)
 
-    def replace_all(
+    def merge_from_upload(
         self,
         rows: list[dict[str, Any]],
         *,
@@ -612,6 +612,17 @@ class PrecomputeExceptionsStore:
         Validate every row in `rows` (1-based row_number for error
         reporting). Only rows that pass validation are kept; invalid rows
         are skipped and returned as errors (partial success).
+
+        Unlike a full replace, this is an upsert keyed by employee_id:
+        existing exceptions for employee IDs NOT present in this upload
+        (whether added manually or by a previous upload) are left
+        untouched. For any employee ID that DOES appear in this upload, ALL
+        of that employee's existing rows are removed first, then replaced
+        by the new row(s) from the file - the upload is treated as the new
+        source of truth for those specific employees. This avoids silently
+        double-counting an employee's adjustment amounts, since downstream
+        aggregation sums amount columns per employee_id (see
+        aggregate_precompute_exceptions below).
 
         If no row is valid, the file on disk is NOT modified - the caller
         should treat an empty `saved` list as "reject the whole upload".
@@ -667,15 +678,30 @@ class PrecomputeExceptionsStore:
             )
 
         if saved:
-            self._write_raw([exception.to_dict() for exception in saved])
+            uploaded_employee_ids = {
+                exception.employee_id for exception in saved
+            }
+            existing_rows = self._read_raw()
+            kept_rows = [
+                row
+                for row in existing_rows
+                if str(row.get("employee_id") or "").strip().upper()
+                not in uploaded_employee_ids
+            ]
+            self._write_raw(
+                kept_rows
+                + [exception.to_dict() for exception in saved]
+            )
 
             audit_logger = _get_audit_logger()
 
             audit_logger.info(
-                "REPLACE_ALL | total=%s | saved=%s | errors=%s | by=%s",
+                "MERGE_FROM_UPLOAD | total=%s | saved=%s | errors=%s | "
+                "kept=%s | by=%s",
                 len(rows),
                 len(saved),
                 len(errors),
+                len(kept_rows),
                 changed_by or "unknown",
             )
 
@@ -688,6 +714,7 @@ class PrecomputeExceptionsStore:
                 )
 
         return saved, errors
+
 
     def delete(
         self,
