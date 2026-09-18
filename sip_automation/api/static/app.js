@@ -503,6 +503,13 @@
   let currentCorrections = [];
   let editingCorrectionId = null;
   let correctionFileOptions = {};
+  // Deleting a correction doesn't touch canonical data by itself (see the
+  // DELETE endpoint) - canonical still reflects the old value until "Apply
+  // All Changes" rebuilds it. currentCorrections.length alone can't signal
+  // that once the LAST correction is deleted (list goes to 0, but a rebuild
+  // is still needed to remove its effect) - hence this separate flag, reset
+  // once that rebuild actually runs.
+  let correctionsDeletionPending = false;
 
   // ---- Precompute Exceptions state ----
   let exceptionCategories = FALLBACK_EXCEPTION_CATEGORIES;
@@ -1603,6 +1610,7 @@
       parametersError.hidden = true;
       correctionsError.hidden = true;
       correctionsStatus.hidden = true;
+      correctionsDeletionPending = false;
       correctionsApplyAllButton.hidden = true;
       correctionsViewResultsButton.hidden = true;
       loadCorrectionFiles();
@@ -2510,9 +2518,13 @@
   // that haven't been (re)applied to the current run - not just right after
   // an add/edit/delete in this same page load. Otherwise switching tabs or
   // reloading the page makes the button disappear even though the
-  // corrections on file still haven't been applied yet.
+  // corrections on file still haven't been applied yet. Also stays visible
+  // when a deletion is pending a rebuild, even if that emptied the list.
   function updateCorrectionsApplyButtonVisibility() {
-    correctionsApplyAllButton.hidden = !(currentRunId && currentCorrections.length > 0);
+    correctionsApplyAllButton.hidden = !(
+      currentRunId &&
+      (currentCorrections.length > 0 || correctionsDeletionPending)
+    );
   }
 
   function renderCorrectionsTable() {
@@ -2709,6 +2721,7 @@
         { method: "DELETE" }
       );
       if (!resp.ok && resp.status !== 204) throw new Error(await readErrorDetail(resp));
+      correctionsDeletionPending = true;
       await loadCorrections();
       if (currentRunId) {
         correctionsStatus.textContent = "Correction deleted. Click \"Apply All Changes\" to rebuild canonical data and recalculate.";
