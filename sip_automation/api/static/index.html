@@ -97,280 +97,8 @@
       <button type="button" id="admin-tab-cam-button" class="btn btn-secondary admin-tab-button" title="Available after files are uploaded">CAM Allocations</button>
       <button type="button" id="admin-tab-hr-exclusions-button" class="btn btn-secondary admin-tab-button" title="Available after files are uploaded">HR Exclusions</button>
     </div>
-
-    <!-- Parameters tab: DUMMY / demo only. Editing values here does not
-         call any API and has no effect on real SIP calculations - see
-         app.js. -->
-    <div id="admin-parameters-panel">
-      <div class="banner banner-warning">
-        <strong>Warning:</strong> these parameters directly control SIP
-        commission calculations and payouts for the selected role. Changes
-        should be reviewed and approved by Finance before use.
-        <br />
-        <span class="banner-note">
-          Demo mode: changes made here are not saved and do not affect the
-          live pipeline.
-        </span>
-      </div>
-
-      <label class="toolbar-field" style="margin-bottom: 20px;">
-        <span>Role</span>
-        <select id="admin-role-select"></select>
-      </label>
-
-      <div id="admin-parameters"></div>
-
-      <div id="parameters-status" class="banner banner-info" hidden></div>
-      <div id="parameters-error" class="banner banner-error" hidden></div>
-
-      <div style="display: flex; gap: 10px; margin-top: 20px;">
-        <button type="button" id="admin-reset-button" class="btn btn-secondary">Reset to Defaults</button>
-        <button type="button" id="apply-parameters-button" class="btn btn-primary" hidden>Apply Changes</button>
-      </div>
-    </div>
-
-    <!-- Precompute Exceptions tab: real backend, persisted to
-         data/precompute_exceptions.yaml, applied automatically before
-         every SIP calculation run - see app.js and
-         src/sip_automation/core/precompute_exceptions.py. -->
-    <div id="exceptions-panel" hidden>
-      <div class="banner banner-warning">
-        <strong>Note:</strong> these exceptions persist across every run and
-        are applied automatically before SIP calculations (BP/YTD Rev &amp;
-        GP adjustments, keyed by Employee ID).
-      </div>
-      <div class="banner banner-warning">
-        <strong>Bulk upload format:</strong>
-        <ul style="margin: 6px 0 0; padding-left: 20px;">
-          <li>One row per employee.</li>
-          <li>Fill in only the columns that apply to that employee (e.g.
-            just <code>bp_fy26_rev</code> + <code>bp_fy26_rev_direction</code>)
-            and leave the rest blank.</li>
-          <li>If you enter an amount, its matching <code>_direction</code>
-            column (<code>+</code> or <code>-</code>) is required, or that
-            row will be rejected.</li>
-          <li><strong>BP FY26 Rev / BP FY26 GP</strong> only affect the
-            "Target Exceptions" metric shown in results - they do
-            <strong>not</strong> change the payout.</li>
-          <li><strong>YTD FY26 Rev / YTD FY26 GP</strong> are the fields
-            that actually affect payout - they feed "Approved Exceptions
-            in Regional Currency", which flows into the SIP calculation.</li>
-          <li>Uploading replaces the entire exceptions list.</li>
-          <li><a href="/ui/exceptions_upload_template.csv" download>Download template</a></li>
-        </ul>
-      </div>
-
-      <div id="exceptions-error" class="banner banner-error" hidden></div>
-      <div id="exceptions-status" class="banner banner-warning" hidden></div>
-      <div id="exceptions-upload-summary" class="banner banner-warning" hidden></div>
-      <div style="margin-bottom: 16px;">
-        <button type="button" id="exceptions-view-results-button" class="btn-link" hidden>View Results</button>
-        <button type="button" id="exceptions-recalculate-button" class="btn-link" hidden>Recalculate Now</button>
-      </div>
-
-      <div class="results-toolbar" style="margin-bottom: 16px;">
-        <button type="button" id="exceptions-add-button" class="btn btn-primary">Add Exception</button>
-        <button type="button" id="exceptions-upload-button" class="btn btn-secondary">Upload Exceptions</button>
-        <input type="file" id="exceptions-upload-input" accept=".xlsx,.xls,.csv" hidden />
-        <label class="toolbar-field toolbar-search">
-          <span>Search</span>
-          <input type="text" id="exceptions-search-input"
-                 placeholder="Filter by employee name, ID, category, or any value..." />
-        </label>
-        <button type="button" id="exceptions-clear-filters-button" class="btn btn-secondary">Clear Filters</button>
-      </div>
-
-      <div class="table-wrapper">
-        <table id="exceptions-table">
-          <thead>
-            <tr>
-              <th>
-                <div class="th-label">Employee ID</div>
-                <select id="exceptions-filter-employee_id" class="th-filter"><option value="">All</option></select>
-              </th>
-              <th>
-                <div class="th-label">Employee Name</div>
-                <select id="exceptions-filter-employee_name" class="th-filter"><option value="">All</option></select>
-              </th>
-              <th>
-                <div class="th-label">Category</div>
-                <select id="exceptions-filter-category" class="th-filter"><option value="">All</option></select>
-              </th>
-              <th>
-                <div class="th-label">BP FY26 Rev<br><small>(Target Exceptions only)</small></div>
-                <select id="exceptions-filter-bp_fy26_rev" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
-              </th>
-              <th>
-                <div class="th-label">BP FY26 GP<br><small>(Target Exceptions only)</small></div>
-                <select id="exceptions-filter-bp_fy26_gp" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
-              </th>
-              <th>
-                <div class="th-label">YTD FY26 Rev<br><small>(affects payout)</small></div>
-                <select id="exceptions-filter-ytd_fy26_rev" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
-              </th>
-              <th>
-                <div class="th-label">YTD FY26 GP<br><small>(affects payout)</small></div>
-                <select id="exceptions-filter-ytd_fy26_gp" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
-              </th>
-              <th>
-                <div class="th-label"># Months Eligible (Override)</div>
-                <select id="exceptions-filter-months_eligible_override" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
-              </th>
-              <th>
-                <div class="th-label">YTD Actual Revenue (Override)</div>
-                <select id="exceptions-filter-ytd_actual_revenue_override" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
-              </th>
-              <th>
-                <div class="th-label">YTD Actual GP/DOP (Override)</div>
-                <select id="exceptions-filter-ytd_actual_gp_dop_override" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
-              </th>
-              <th>
-                <div class="th-label">BP SG&amp;A</div>
-                <select id="exceptions-filter-bp_sga" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
-              </th>
-              <th>
-                <div class="th-label">YTD SG&amp;A</div>
-                <select id="exceptions-filter-ytd_sga" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
-              </th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-
-      <div id="exceptions-pending-delete-panel" style="margin-top: 16px;" hidden>
-        <div class="banner banner-warning">
-          <strong><span id="exceptions-pending-delete-count">0</span> exception(s)</strong>
-          staged for deletion — nothing is removed until you click "Apply Deletions".
-        </div>
-        <ul id="exceptions-pending-delete-list" class="pending-delete-list"></ul>
-        <div style="display: flex; gap: 12px;">
-          <button type="button" id="exceptions-apply-deletions-button" class="btn btn-delete">Apply Deletions</button>
-          <button type="button" id="exceptions-cancel-deletions-button" class="btn btn-secondary">Cancel All</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Data Corrections tab: persistent source-data corrections applied
-         before canonical processing. Stored in data/data_corrections.yaml. -->
-    <div id="corrections-panel" hidden>
-      <div class="banner banner-warning">
-        <strong>Note:</strong> These corrections override raw source data before
-        canonical processing. Use the exact column header from your uploaded
-        Excel file. Changes persist across all future runs until deleted.
-      </div>
-
-      <div id="corrections-error" class="banner banner-error" hidden></div>
-      <div id="corrections-status" class="banner banner-info" hidden></div>
-
-      <button type="button" id="corrections-add-button"
-              class="btn btn-primary" style="margin-bottom: 16px;">Add Correction</button>
-
-      <div class="table-wrapper">
-        <table id="corrections-table">
-          <thead>
-            <tr>
-              <th>Employee ID</th>
-              <th>Employee Name</th>
-              <th>Source File</th>
-              <th>Column</th>
-              <th>New Value</th>
-              <th>Note</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-
-      <div style="display: flex; gap: 12px; margin-top: 16px;">
-        <button type="button" id="corrections-apply-all-button"
-                class="btn btn-primary" hidden>Apply All Changes</button>
-        <button type="button" id="corrections-view-results-button"
-                class="btn btn-secondary" hidden>View Results</button>
-      </div>
-    </div>
-
-    <!-- HR Exclusions tab: manage which employees are excluded from calculations. -->
-    <div id="hr-exclusions-panel" hidden>
-      <div class="banner banner-warning">
-        <strong>Note:</strong> Employees listed here are skipped in all SIP calculations.
-        Remove an employee to include them back, then click <strong>Recalculate</strong>.
-      </div>
-
-      <div id="hr-excl-error" class="banner banner-error" hidden></div>
-      <div id="hr-excl-status" class="banner banner-info" hidden></div>
-
-      <div class="results-toolbar" style="margin-bottom: 12px;">
-        <button type="button" id="hr-excl-add-button" class="btn btn-secondary">Add Employee ID</button>
-        <label class="toolbar-field toolbar-search">
-          <span>Search</span>
-          <input type="text" id="hr-excl-search-input" placeholder="Filter by Employee ID..." />
-        </label>
-      </div>
-
-      <div id="hr-excl-list" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;"></div>
-      <p id="hr-excl-empty" class="hint" hidden>No employees are currently excluded — all will be included in calculations.</p>
-
-      <div style="display: flex; gap: 12px; margin-top: 16px;">
-        <button type="button" id="hr-excl-recalc-button" class="btn btn-primary" hidden>Recalculate</button>
-        <button type="button" id="hr-excl-view-results-button" class="btn btn-secondary" hidden>View Results</button>
-      </div>
-    </div>
-
-    <!-- CAM Allocations tab: override computed allocation ratios for CAM
-         employees. Stored in data/cam_allocation_overrides.yaml. -->
-    <div id="cam-panel" hidden>
-      <div class="banner banner-warning">
-        <strong>Note:</strong> These override the auto-computed allocation %
-        (CAM BP target &divide; total division BP target) used when allocating
-        actual revenue and GP to each CAM. Leave Division Node blank to apply
-        to all divisions for a CAM. Changes apply when calculations re-run.
-      </div>
-
-      <div id="cam-error" class="banner banner-error" hidden></div>
-      <div id="cam-status" class="banner banner-warning" hidden></div>
-      <div id="cam-division-totals-warning" class="banner banner-error" hidden></div>
-      <button type="button" id="cam-view-results-button"
-              class="btn btn-secondary" style="margin-bottom: 16px;" hidden>View Results</button>
-
-      <div class="results-toolbar" style="margin-bottom: 12px;">
-        <button type="button" id="cam-add-button" class="btn btn-primary">Add Override</button>
-        <label class="toolbar-field toolbar-search">
-          <span>Search</span>
-          <input type="text" id="cam-search-input"
-                 placeholder="Filter by CAM ID or Division..." />
-        </label>
-      </div>
-
-      <div class="table-wrapper">
-        <table id="cam-table">
-          <thead>
-            <tr>
-              <th>CAM ID</th>
-              <th>Division Node</th>
-              <th>Rev % (Computed)</th>
-              <th>Override Rev %</th>
-              <th>GP % (Computed)</th>
-              <th>Override GP %</th>
-              <th>Note</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-
-      <div id="cam-pending-hint" class="hint" style="margin-top: 10px;"></div>
-
-      <div style="display: flex; gap: 12px; margin-top: 16px;">
-        <button type="button" id="cam-apply-all-button" class="btn btn-primary" hidden>Apply All Changes</button>
-        <button type="button" id="cam-discard-button" class="btn btn-secondary" hidden>Discard Changes</button>
-        <button type="button" id="cam-view-results-button" class="btn btn-secondary" hidden>View Results</button>
-      </div>
-    </div>
-
   </section>
+
   <div id="correction-modal" class="modal-overlay" hidden>
     <div class="modal">
       <div class="modal-header">
@@ -557,6 +285,286 @@
   </section>
 
 </main>
+
+<!-- Admin tab content: a sibling of #admin-section (not nested inside it)
+     so its width can flex per-tab (see #admin-content-section in
+     styles.css) without moving the header/tabs above it. Both sections are
+     always shown/hidden together - see showAdminSection/hideAllMainSections
+     in app.js. -->
+<section id="admin-content-section" class="card" hidden>
+  <!-- Parameters tab: DUMMY / demo only. Editing values here does not
+       call any API and has no effect on real SIP calculations - see
+       app.js. -->
+  <div id="admin-parameters-panel">
+    <div class="banner banner-warning">
+      <strong>Warning:</strong> these parameters directly control SIP
+      commission calculations and payouts for the selected role. Changes
+      should be reviewed and approved by Finance before use.
+      <br />
+      <span class="banner-note">
+        Demo mode: changes made here are not saved and do not affect the
+        live pipeline.
+      </span>
+    </div>
+
+    <label class="toolbar-field" style="margin-bottom: 20px;">
+      <span>Role</span>
+      <select id="admin-role-select"></select>
+    </label>
+
+    <div id="admin-parameters"></div>
+
+    <div id="parameters-status" class="banner banner-info" hidden></div>
+    <div id="parameters-error" class="banner banner-error" hidden></div>
+
+    <div style="display: flex; gap: 10px; margin-top: 20px;">
+      <button type="button" id="admin-reset-button" class="btn btn-secondary">Reset to Defaults</button>
+      <button type="button" id="apply-parameters-button" class="btn btn-primary" hidden>Apply Changes</button>
+    </div>
+  </div>
+
+  <!-- Precompute Exceptions tab: real backend, persisted to
+       data/precompute_exceptions.yaml, applied automatically before
+       every SIP calculation run - see app.js and
+       src/sip_automation/core/precompute_exceptions.py. -->
+  <div id="exceptions-panel" hidden>
+    <div class="banner banner-warning">
+      <strong>Note:</strong> these exceptions persist across every run and
+      are applied automatically before SIP calculations (BP/YTD Rev &amp;
+      GP adjustments, keyed by Employee ID).
+    </div>
+    <div class="banner banner-warning">
+      <strong>Bulk upload format:</strong>
+      <ul style="margin: 6px 0 0; padding-left: 20px;">
+        <li>One row per employee.</li>
+        <li>Fill in only the columns that apply to that employee (e.g.
+          just <code>bp_fy26_rev</code> + <code>bp_fy26_rev_direction</code>)
+          and leave the rest blank.</li>
+        <li>If you enter an amount, its matching <code>_direction</code>
+          column (<code>+</code> or <code>-</code>) is required, or that
+          row will be rejected.</li>
+        <li><strong>BP FY26 Rev / BP FY26 GP</strong> only affect the
+          "Target Exceptions" metric shown in results - they do
+          <strong>not</strong> change the payout.</li>
+        <li><strong>YTD FY26 Rev / YTD FY26 GP</strong> are the fields
+          that actually affect payout - they feed "Approved Exceptions
+          in Regional Currency", which flows into the SIP calculation.</li>
+        <li>Uploading replaces the entire exceptions list.</li>
+        <li><a href="/ui/exceptions_upload_template.csv" download>Download template</a></li>
+      </ul>
+    </div>
+
+    <div id="exceptions-error" class="banner banner-error" hidden></div>
+    <div id="exceptions-status" class="banner banner-warning" hidden></div>
+    <div id="exceptions-upload-summary" class="banner banner-warning" hidden></div>
+    <div style="margin-bottom: 16px;">
+      <button type="button" id="exceptions-view-results-button" class="btn-link" hidden>View Results</button>
+      <button type="button" id="exceptions-recalculate-button" class="btn-link" hidden>Recalculate Now</button>
+    </div>
+
+    <div class="results-toolbar" style="margin-bottom: 16px;">
+      <button type="button" id="exceptions-add-button" class="btn btn-primary">Add Exception</button>
+      <button type="button" id="exceptions-upload-button" class="btn btn-secondary">Upload Exceptions</button>
+      <input type="file" id="exceptions-upload-input" accept=".xlsx,.xls,.csv" hidden />
+      <label class="toolbar-field toolbar-search">
+        <span>Search</span>
+        <input type="text" id="exceptions-search-input"
+               placeholder="Filter by employee name, ID, category, or any value..." />
+      </label>
+      <button type="button" id="exceptions-clear-filters-button" class="btn btn-secondary">Clear Filters</button>
+    </div>
+
+    <div class="table-wrapper">
+      <table id="exceptions-table">
+        <thead>
+          <tr>
+            <th>
+              <div class="th-label">Employee ID</div>
+              <select id="exceptions-filter-employee_id" class="th-filter"><option value="">All</option></select>
+            </th>
+            <th>
+              <div class="th-label">Employee Name</div>
+              <select id="exceptions-filter-employee_name" class="th-filter"><option value="">All</option></select>
+            </th>
+            <th>
+              <div class="th-label">Category</div>
+              <select id="exceptions-filter-category" class="th-filter"><option value="">All</option></select>
+            </th>
+            <th>
+              <div class="th-label">BP FY26 Rev<br><small>(Target Exceptions only)</small></div>
+              <select id="exceptions-filter-bp_fy26_rev" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
+            </th>
+            <th>
+              <div class="th-label">BP FY26 GP<br><small>(Target Exceptions only)</small></div>
+              <select id="exceptions-filter-bp_fy26_gp" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
+            </th>
+            <th>
+              <div class="th-label">YTD FY26 Rev<br><small>(affects payout)</small></div>
+              <select id="exceptions-filter-ytd_fy26_rev" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
+            </th>
+            <th>
+              <div class="th-label">YTD FY26 GP<br><small>(affects payout)</small></div>
+              <select id="exceptions-filter-ytd_fy26_gp" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
+            </th>
+            <th>
+              <div class="th-label"># Months Eligible (Override)</div>
+              <select id="exceptions-filter-months_eligible_override" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
+            </th>
+            <th>
+              <div class="th-label">YTD Actual Revenue (Override)</div>
+              <select id="exceptions-filter-ytd_actual_revenue_override" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
+            </th>
+            <th>
+              <div class="th-label">YTD Actual GP/DOP (Override)</div>
+              <select id="exceptions-filter-ytd_actual_gp_dop_override" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
+            </th>
+            <th>
+              <div class="th-label">BP SG&amp;A</div>
+              <select id="exceptions-filter-bp_sga" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
+            </th>
+            <th>
+              <div class="th-label">YTD SG&amp;A</div>
+              <select id="exceptions-filter-ytd_sga" class="th-filter"><option value="">All</option><option value="has">Has data</option><option value="empty">Empty</option></select>
+            </th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div id="exceptions-pending-delete-panel" style="margin-top: 16px;" hidden>
+      <div class="banner banner-warning">
+        <strong><span id="exceptions-pending-delete-count">0</span> exception(s)</strong>
+        staged for deletion — nothing is removed until you click "Apply Deletions".
+      </div>
+      <ul id="exceptions-pending-delete-list" class="pending-delete-list"></ul>
+      <div style="display: flex; gap: 12px;">
+        <button type="button" id="exceptions-apply-deletions-button" class="btn btn-delete">Apply Deletions</button>
+        <button type="button" id="exceptions-cancel-deletions-button" class="btn btn-secondary">Cancel All</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data Corrections tab: persistent source-data corrections applied
+       before canonical processing. Stored in data/data_corrections.yaml. -->
+  <div id="corrections-panel" hidden>
+    <div class="banner banner-warning">
+      <strong>Note:</strong> These corrections override raw source data before
+      canonical processing. Use the exact column header from your uploaded
+      Excel file. Changes persist across all future runs until deleted.
+    </div>
+
+    <div id="corrections-error" class="banner banner-error" hidden></div>
+    <div id="corrections-status" class="banner banner-info" hidden></div>
+
+    <button type="button" id="corrections-add-button"
+            class="btn btn-primary" style="margin-bottom: 16px;">Add Correction</button>
+
+    <div class="table-wrapper">
+      <table id="corrections-table">
+        <thead>
+          <tr>
+            <th>Employee ID</th>
+            <th>Employee Name</th>
+            <th>Source File</th>
+            <th>Column</th>
+            <th>New Value</th>
+            <th>Note</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div style="display: flex; gap: 12px; margin-top: 16px;">
+      <button type="button" id="corrections-apply-all-button"
+              class="btn btn-primary" hidden>Apply All Changes</button>
+      <button type="button" id="corrections-view-results-button"
+              class="btn btn-secondary" hidden>View Results</button>
+    </div>
+  </div>
+
+  <!-- HR Exclusions tab: manage which employees are excluded from calculations. -->
+  <div id="hr-exclusions-panel" hidden>
+    <div class="banner banner-warning">
+      <strong>Note:</strong> Employees listed here are skipped in all SIP calculations.
+      Remove an employee to include them back, then click <strong>Recalculate</strong>.
+    </div>
+
+    <div id="hr-excl-error" class="banner banner-error" hidden></div>
+    <div id="hr-excl-status" class="banner banner-info" hidden></div>
+
+    <div class="results-toolbar" style="margin-bottom: 12px;">
+      <button type="button" id="hr-excl-add-button" class="btn btn-secondary">Add Employee ID</button>
+      <label class="toolbar-field toolbar-search">
+        <span>Search</span>
+        <input type="text" id="hr-excl-search-input" placeholder="Filter by Employee ID..." />
+      </label>
+    </div>
+
+    <div id="hr-excl-list" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;"></div>
+    <p id="hr-excl-empty" class="hint" hidden>No employees are currently excluded — all will be included in calculations.</p>
+
+    <div style="display: flex; gap: 12px; margin-top: 16px;">
+      <button type="button" id="hr-excl-recalc-button" class="btn btn-primary" hidden>Recalculate</button>
+      <button type="button" id="hr-excl-view-results-button" class="btn btn-secondary" hidden>View Results</button>
+    </div>
+  </div>
+
+  <!-- CAM Allocations tab: override computed allocation ratios for CAM
+       employees. Stored in data/cam_allocation_overrides.yaml. -->
+  <div id="cam-panel" hidden>
+    <div class="banner banner-warning">
+      <strong>Note:</strong> These override the auto-computed allocation %
+      (CAM BP target &divide; total division BP target) used when allocating
+      actual revenue and GP to each CAM. Leave Division Node blank to apply
+      to all divisions for a CAM. Changes apply when calculations re-run.
+    </div>
+
+    <div id="cam-error" class="banner banner-error" hidden></div>
+    <div id="cam-status" class="banner banner-warning" hidden></div>
+    <div id="cam-division-totals-warning" class="banner banner-error" hidden></div>
+    <button type="button" id="cam-view-results-button"
+            class="btn btn-secondary" style="margin-bottom: 16px;" hidden>View Results</button>
+
+    <div class="results-toolbar" style="margin-bottom: 12px;">
+      <button type="button" id="cam-add-button" class="btn btn-primary">Add Override</button>
+      <label class="toolbar-field toolbar-search">
+        <span>Search</span>
+        <input type="text" id="cam-search-input"
+               placeholder="Filter by CAM ID or Division..." />
+      </label>
+    </div>
+
+    <div class="table-wrapper">
+      <table id="cam-table">
+        <thead>
+          <tr>
+            <th>CAM ID</th>
+            <th>Division Node</th>
+            <th>Rev % (Computed)</th>
+            <th>Override Rev %</th>
+            <th>GP % (Computed)</th>
+            <th>Override GP %</th>
+            <th>Note</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div id="cam-pending-hint" class="hint" style="margin-top: 10px;"></div>
+
+    <div style="display: flex; gap: 12px; margin-top: 16px;">
+      <button type="button" id="cam-apply-all-button" class="btn btn-primary" hidden>Apply All Changes</button>
+      <button type="button" id="cam-discard-button" class="btn btn-secondary" hidden>Discard Changes</button>
+      <button type="button" id="cam-view-results-button" class="btn btn-secondary" hidden>View Results</button>
+    </div>
+  </div>
+
+</section>
 
 <!-- Results: kept as a sibling of .app-main (not nested inside it) so it
      can use a wider max-width than the upload/progress cards, without

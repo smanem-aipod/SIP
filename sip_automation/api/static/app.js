@@ -216,6 +216,7 @@
 
   const adminButton = document.getElementById("admin-button");
   const adminSection = document.getElementById("admin-section");
+  const adminContentSection = document.getElementById("admin-content-section");
   const adminRoleSelect = document.getElementById("admin-role-select");
   const adminParameters = document.getElementById("admin-parameters");
   const adminResetButton = document.getElementById("admin-reset-button");
@@ -534,13 +535,14 @@
     hrExclusionsPanel.hidden = true;
     adminPasswordSection.hidden = true;
     adminSection.hidden = true;
+    adminContentSection.hidden = true;
     uploadSection.hidden = true;
     progressSection.hidden = true;
     resultsSection.hidden = true;
-    // The Precompute Exceptions tab widens .app-main (see showAdminTab) -
-    // clear that here so switching to any other section/tab never inherits
-    // the extra width.
-    document.querySelector(".app-main").classList.remove("app-main--wide-exceptions");
+    // The Precompute Exceptions tab widens #admin-content-section (see
+    // showAdminTab) - clear that here so switching to any other section/tab
+    // never inherits the extra width.
+    adminContentSection.classList.remove("admin-content--wide-exceptions");
     // Close any open modals so they don't float over the new section
     rowModal.hidden = true;
     exceptionModal.hidden = true;
@@ -1500,6 +1502,7 @@
   async function showAdminSection() {
     hideAllMainSections();
     adminSection.hidden = false;
+    adminContentSection.hidden = false;
     sessionStorage.setItem(ADMIN_OPEN_KEY, "true");
 
     // Data Corrections and CAM Allocations tabs require an active run.
@@ -1545,7 +1548,9 @@
 
     // Widen the page only for the Precompute Exceptions tab (13 columns) -
     // every other admin tab and page section keeps the normal 1100px width.
-    document.querySelector(".app-main").classList.toggle("app-main--wide-exceptions", showingExceptions);
+    // #admin-content-section is a sibling of #admin-section (see index.html)
+    // so widening it never moves the header/tab bar above it.
+    adminContentSection.classList.toggle("admin-content--wide-exceptions", showingExceptions);
 
     adminParametersPanel.hidden = !showingParameters;
     exceptionsPanel.hidden = !showingExceptions;

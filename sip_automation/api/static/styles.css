@@ -38,15 +38,6 @@ body {
   margin: 0 auto;
 }
 
-/* Precompute Exceptions has 13 columns (Employee ID/Name/Category + 8 amount
-   columns + filters/actions) and needs more horizontal room than the other
-   admin tabs to avoid the table's own inner scrollbar. Toggled on/off
-   .app-main by showAdminTab() (app.js) only while that tab is active, so it
-   doesn't widen any other admin tab or page section. */
-.app-main.app-main--wide-exceptions {
-  max-width: 1500px;
-}
-
 .login-screen {
   min-height: 100vh;
 }
@@ -316,6 +307,22 @@ body {
   width: calc(100% - 64px); /* 32px gutter each side, matching .app-main's own padding */
   margin: 0 auto 24px;
   padding: 28px 32px;
+}
+
+/* Admin tab content: a sibling of .app-main (see #admin-content-section in
+   index.html), same reasoning as #results-section above - this is what lets
+   it widen for one tab (Precompute Exceptions, 13 columns) without dragging
+   #admin-section's header/tab bar along with it, since that header stays a
+   normal nested child of .app-main and never changes width. */
+#admin-content-section {
+  max-width: 1100px;
+  width: calc(100% - 64px);
+  margin: 0 auto 24px;
+  padding: 28px 32px;
+}
+
+#admin-content-section.admin-content--wide-exceptions {
+  max-width: 1500px;
 }
 
 .card:hover {
