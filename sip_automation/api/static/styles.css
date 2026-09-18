@@ -478,6 +478,34 @@ body {
   font-size: 14px;
 }
 
+/* Staged-deletion list (Precompute Exceptions / CAM Allocations) - rows
+   queued for deletion but not yet removed, each with its own Undo. */
+.pending-delete-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pending-delete-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.pending-delete-list li span {
+  text-decoration: line-through;
+  color: #64748b;
+}
+
 .banner-error {
   background: #fef2f2;
   color: var(--color-error);

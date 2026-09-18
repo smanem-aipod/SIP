@@ -239,6 +239,18 @@
         </table>
       </div>
 
+      <div id="exceptions-pending-delete-panel" style="margin-top: 16px;" hidden>
+        <div class="banner banner-warning">
+          <strong><span id="exceptions-pending-delete-count">0</span> exception(s)</strong>
+          staged for deletion — nothing is removed until you click "Apply Deletions".
+        </div>
+        <ul id="exceptions-pending-delete-list" class="pending-delete-list"></ul>
+        <div style="display: flex; gap: 12px;">
+          <button type="button" id="exceptions-apply-deletions-button" class="btn btn-delete">Apply Deletions</button>
+          <button type="button" id="exceptions-cancel-deletions-button" class="btn btn-secondary">Cancel All</button>
+        </div>
+      </div>
+
       <div style="display: flex; gap: 12px; margin-top: 16px;">
         <button type="button" id="corrections-apply-all-button"
                 class="btn btn-primary" hidden>Apply All Changes</button>

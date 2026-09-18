@@ -253,6 +253,12 @@
   const exceptionsFilterBpSga = document.getElementById("exceptions-filter-bp_sga");
   const exceptionsFilterYtdSga = document.getElementById("exceptions-filter-ytd_sga");
 
+  const exceptionsPendingDeletePanel = document.getElementById("exceptions-pending-delete-panel");
+  const exceptionsPendingDeleteCount = document.getElementById("exceptions-pending-delete-count");
+  const exceptionsPendingDeleteList = document.getElementById("exceptions-pending-delete-list");
+  const exceptionsApplyDeletionsButton = document.getElementById("exceptions-apply-deletions-button");
+  const exceptionsCancelDeletionsButton = document.getElementById("exceptions-cancel-deletions-button");
+
   const exceptionModal = document.getElementById("exception-modal");
   const exceptionModalTitle = document.getElementById("exception-modal-title");
   const exceptionModalCloseButton = document.getElementById("exception-modal-close-button");
@@ -508,6 +514,11 @@
   let exceptionsSearchTerm = "";
   let exceptionsColumnFilters = makeDefaultExceptionsColumnFilters();
   let editingExceptionId = null;
+
+  // Exceptions staged for deletion but not yet actually deleted - lets an
+  // admin queue up several deletes, review them, and apply them (and
+  // recalculate) all at once instead of once per click. Keyed by exception id.
+  let exceptionsPendingDeleteIds = new Set();
 
   // ---- Section visibility ----
   // Single source of truth for "only one main section visible at a time".
@@ -1551,6 +1562,8 @@
       exceptionsSearchInput.value = "";
       exceptionsSearchTerm = "";
       exceptionsColumnFilters = makeDefaultExceptionsColumnFilters();
+      exceptionsPendingDeleteIds.clear();
+      exceptionsPendingDeletePanel.hidden = true;
       loadExceptionCategories();
       loadExceptions();
     } else if (showingCorrections) {
@@ -1783,6 +1796,8 @@
     }));
 
     const visibleRows = rowsWithCells.filter(({ exception, cells }) => {
+      if (exceptionsPendingDeleteIds.has(exception.id)) return false;
+
       const matchesColumnFilters = EXCEPTIONS_COLUMN_FILTER_FIELDS.every(({ key, type }) => {
         const selected = exceptionsColumnFilters[key];
         if (!selected) return true;
@@ -2079,29 +2094,96 @@
 
   async function deleteException(exception) {
     const confirmed = window.confirm(
-      `Delete the exception for employee ${exception.employee_id}? This cannot be undone.`
+      `Stage the exception for employee ${exception.employee_id} for deletion? ` +
+        `It won't actually be removed (and results won't be recalculated) until ` +
+        `you click "Apply Deletions".`
+    );
+    if (!confirmed) return;
+
+    exceptionsPendingDeleteIds.add(exception.id);
+    renderExceptionsTable();
+    renderPendingDeletions();
+  }
+
+  // Renders the staged-for-deletion list below the exceptions table and
+  // wires up each row's Undo button. Deleting several employees now stages
+  // them all here first - nothing is actually removed, and no recalculation
+  // happens, until "Apply Deletions" is clicked once for the whole batch.
+  function renderPendingDeletions() {
+    exceptionsPendingDeleteList.innerHTML = "";
+
+    const pendingExceptions = currentExceptions.filter((exception) =>
+      exceptionsPendingDeleteIds.has(exception.id)
+    );
+
+    exceptionsPendingDeletePanel.hidden = pendingExceptions.length === 0;
+    exceptionsPendingDeleteCount.textContent = String(pendingExceptions.length);
+
+    pendingExceptions.forEach((exception) => {
+      const li = document.createElement("li");
+
+      const label = document.createElement("span");
+      label.textContent = `${exception.employee_id}${exception.employee_name ? " - " + exception.employee_name : ""}`;
+      li.appendChild(label);
+
+      const undoButton = document.createElement("button");
+      undoButton.type = "button";
+      undoButton.className = "btn btn-secondary";
+      undoButton.textContent = "Undo";
+      undoButton.addEventListener("click", () => {
+        exceptionsPendingDeleteIds.delete(exception.id);
+        renderExceptionsTable();
+        renderPendingDeletions();
+      });
+      li.appendChild(undoButton);
+
+      exceptionsPendingDeleteList.appendChild(li);
+    });
+  }
+
+  exceptionsApplyDeletionsButton.addEventListener("click", async function () {
+    const idsToDelete = Array.from(exceptionsPendingDeleteIds);
+    if (idsToDelete.length === 0) return;
+
+    const confirmed = window.confirm(
+      `Delete ${idsToDelete.length} staged exception(s)? This cannot be undone.`
     );
     if (!confirmed) return;
 
     exceptionsError.hidden = true;
+    exceptionsApplyDeletionsButton.disabled = true;
+    exceptionsCancelDeletionsButton.disabled = true;
 
     try {
-      const response = await fetch(
-        `${EXCEPTIONS_API_BASE}/${exception.id}?changed_by=${encodeURIComponent(currentUsername())}`,
-        { method: "DELETE" }
-      );
+      for (const id of idsToDelete) {
+        const response = await fetch(
+          `${EXCEPTIONS_API_BASE}/${id}?changed_by=${encodeURIComponent(currentUsername())}`,
+          { method: "DELETE" }
+        );
 
-      if (!response.ok && response.status !== 204) {
-        throw new Error(await readErrorDetail(response));
+        if (!response.ok && response.status !== 204) {
+          throw new Error(await readErrorDetail(response));
+        }
       }
 
+      exceptionsPendingDeleteIds.clear();
       await loadExceptions();
-      await recalculateAndShowResults(true);
+      await recalculateAndShowResults(false);
+      renderPendingDeletions();
     } catch (err) {
       exceptionsError.textContent = err.message || String(err);
       exceptionsError.hidden = false;
+    } finally {
+      exceptionsApplyDeletionsButton.disabled = false;
+      exceptionsCancelDeletionsButton.disabled = false;
     }
-  }
+  });
+
+  exceptionsCancelDeletionsButton.addEventListener("click", function () {
+    exceptionsPendingDeleteIds.clear();
+    renderExceptionsTable();
+    renderPendingDeletions();
+  });
 
   // ---- Precompute Exceptions: bulk upload (replaces the entire list) ----
 
@@ -2144,7 +2226,11 @@
       const result = await response.json();
       renderExceptionUploadSummary(result);
 
+      // Uploading replaces the entire exceptions list, so any staged
+      // deletions no longer refer to real rows - drop them.
+      exceptionsPendingDeleteIds.clear();
       await loadExceptions();
+      renderPendingDeletions();
       exceptionsStatus.hidden = true;
       exceptionsRecalculateButton.hidden = false;
     } catch (err) {
