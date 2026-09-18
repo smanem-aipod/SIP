@@ -16,6 +16,7 @@ from sip_automation.api.schemas.data_corrections import (
 from sip_automation.core.current_run import CurrentRunStore
 from sip_automation.core.data_corrections import (
     ALLOWED_SOURCE_FILES,
+    EMPLOYEE_ID_COLUMN_BY_SOURCE_FILE,
     DataCorrection,
     DataCorrectionsStore,
 )
@@ -34,6 +35,63 @@ router = APIRouter()
 
 def _to_response(correction: DataCorrection) -> DataCorrectionResponse:
     return DataCorrectionResponse(**correction.to_dict())
+
+
+def _employee_id_exists(source_file: str, employee_id: str) -> bool:
+    """
+    True if employee_id is found in source_file's raw data for the current
+    run, so Add/Edit can reject a typo'd/nonexistent ID instead of silently
+    accepting a correction that will never match anything (see
+    apply_corrections_to_dataframe, which skips non-matching rows with no
+    warning).
+
+    Returns True (i.e. skip the check) if there's no active run yet, or if
+    the lookup itself fails for any reason - corrections may legitimately be
+    entered before the pipeline has ever run, and this is a best-effort
+    sanity check, not the source of truth.
+    """
+    current = CurrentRunStore().get()
+    if not current:
+        return True
+
+    emp_id_column = EMPLOYEE_ID_COLUMN_BY_SOURCE_FILE.get(source_file)
+    if not emp_id_column:
+        return True
+
+    try:
+        app = get_application()
+        repo = app.container.raw_repository
+        schema, table = repo.get_target(source_file)
+        with repo.engine.connect() as conn:
+            df = pd.read_sql(
+                text(
+                    f'SELECT 1 FROM "{schema}"."{table}" '
+                    f'WHERE pipeline_run_id = :run_id '
+                    f'AND UPPER(TRIM("{emp_id_column}"::text)) = :employee_id '
+                    f'LIMIT 1'
+                ),
+                conn,
+                params={
+                    "run_id": current.run_id,
+                    "employee_id": employee_id.strip().upper(),
+                },
+            )
+        return not df.empty
+    except Exception:
+        return True
+
+
+def _require_known_employee(source_file: str, employee_id: str) -> None:
+    if _employee_id_exists(source_file, employee_id):
+        return
+    label = ALLOWED_SOURCE_FILES.get(source_file, source_file)
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=(
+            f"Employee ID '{employee_id}' was not found in the {label} data "
+            f"for the current run. Double-check the ID and try again."
+        ),
+    )
 
 
 @router.get(
@@ -101,6 +159,7 @@ def list_corrections() -> DataCorrectionListResponse:
     status_code=status.HTTP_201_CREATED,
 )
 def create_correction(payload: DataCorrectionRequest) -> DataCorrectionResponse:
+    _require_known_employee(payload.source_file, payload.employee_id)
     try:
         correction = DataCorrectionsStore().create(
             payload.model_dump(exclude={"changed_by"}),
@@ -129,6 +188,7 @@ def create_correction(payload: DataCorrectionRequest) -> DataCorrectionResponse:
 def update_correction(
     correction_id: str, payload: DataCorrectionRequest
 ) -> DataCorrectionResponse:
+    _require_known_employee(payload.source_file, payload.employee_id)
     try:
         correction = DataCorrectionsStore().update(
             correction_id,
