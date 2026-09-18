@@ -111,6 +111,8 @@ OVERRIDE_FIELDS: tuple[str, ...] = (
     "months_eligible_override",
     "ytd_actual_revenue_override",
     "ytd_actual_gp_dop_override",
+    "target_sales_rev_direct_override",
+    "target_gp_dop_direct_override",
 )
 
 # Subtraction fields: when entered, subtracted from bp_gp_dop_2026_direct /
@@ -190,6 +192,8 @@ class PrecomputeException:
     months_eligible_override: float | None
     ytd_actual_revenue_override: float | None
     ytd_actual_gp_dop_override: float | None
+    target_sales_rev_direct_override: float | None
+    target_gp_dop_direct_override: float | None
 
     bp_sga: float | None
     ytd_sga: float | None
@@ -823,6 +827,12 @@ class PrecomputeExceptionsStore:
             ),
             ytd_actual_gp_dop_override=row.get(
                 "ytd_actual_gp_dop_override"
+            ),
+            target_sales_rev_direct_override=row.get(
+                "target_sales_rev_direct_override"
+            ),
+            target_gp_dop_direct_override=row.get(
+                "target_gp_dop_direct_override"
             ),
             bp_sga=row.get("bp_sga"),
             ytd_sga=row.get("ytd_sga"),

@@ -296,10 +296,12 @@
   const exceptionMonthsEligibleOverrideInput = document.getElementById("exception-months-eligible-override");
   const exceptionYtdActualRevenueOverrideInput = document.getElementById("exception-ytd-actual-revenue-override");
   const exceptionYtdActualGpDopOverrideInput = document.getElementById("exception-ytd-actual-gp-dop-override");
+  const exceptionTargetSalesRevDirectOverrideInput = document.getElementById("exception-target-sales-rev-direct-override");
+  const exceptionTargetGpDopDirectOverrideInput = document.getElementById("exception-target-gp-dop-direct-override");
   const exceptionBpSgaInput = document.getElementById("exception-bp-sga");
   const exceptionYtdSgaInput = document.getElementById("exception-ytd-sga");
 
-  // Config-driven list of the 3 complete-override fields: a single value
+  // Config-driven list of the complete-override fields: a single value
   // that replaces the calculated metric outright (no percentage/direction).
   const EXCEPTION_OVERRIDE_FIELDS = [
     {
@@ -313,6 +315,14 @@
     {
       key: "ytd_actual_gp_dop_override",
       valueInput: exceptionYtdActualGpDopOverrideInput,
+    },
+    {
+      key: "target_sales_rev_direct_override",
+      valueInput: exceptionTargetSalesRevDirectOverrideInput,
+    },
+    {
+      key: "target_gp_dop_direct_override",
+      valueInput: exceptionTargetGpDopDirectOverrideInput,
     },
   ];
 

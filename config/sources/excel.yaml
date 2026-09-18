@@ -41,13 +41,12 @@ tables:
 
 
 read_options:
-  keep_default_na: true
+  keep_default_na: false
 
   na_values:
     - ""
     - "N/A"
     - "#N/A"
-    - "NA"
     - "null"
     - "None"
     - "-"

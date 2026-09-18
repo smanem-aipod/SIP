@@ -178,6 +178,7 @@ raw_to_canonical:
     preferred_name: preferred_name
     sales_office_description: sales_office_description
     sales_group_description: sales_group_description
+    sales_district_description: sales_district_description
     job_profile: job_profile
     job_profile_for_sip: job_profile_for_sip
     country: country
@@ -264,6 +265,11 @@ columns:
     max_length: 200
 
   sales_group_description:
+    type: string
+    nullable: true
+    max_length: 200
+
+  sales_district_description:
     type: string
     nullable: true
     max_length: 200
@@ -473,6 +479,7 @@ publish:
     - preferred_name
     - sales_office_description
     - sales_group_description
+    - sales_district_description
     - job_profile
     - job_profile_for_sip
     - country

@@ -17,14 +17,14 @@ output:
     - source: job_profile_for_sip
       header: Position
 
-    - source: sales_district_description
-      header: Sales District Description
-
     - source: sales_office_description
       header: Sales Office Description
 
     - source: sales_group_description
       header: Sales Group Description
+
+    - source: sales_district_description
+      header: Sales District Description
 
     - source: bu
       header: BU

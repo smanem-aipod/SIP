@@ -119,11 +119,10 @@ aggregation_metrics:
   # - reference_keys
   # =======================================================
 
-  bp_sales_2026_direct:
+  bp_sales_2026_direct_computed:
     enabled: true
-    publish: true
+    publish: false
 
-    output_name: "Target Sales Rev Direct"
     operation: aggregate_sum
 
     source_dataset:
@@ -142,11 +141,48 @@ aggregation_metrics:
     default: 0
 
 
-  bp_gp_dop_2026_direct:
+  bp_sales_2026_direct_override:
+    enabled: true
+    publish: false
+    operation: lookup
+
+    dataset: precompute_exceptions
+    source_keys:
+      - employee_id
+    reference_keys:
+      - employee_id
+    value_column: target_sales_rev_direct_override
+    cardinality: many_to_one
+    join_type: left
+
+
+  bp_sales_2026_direct:
+    enabled: true
+    publish: true
+
+    output_name: "Target Sales Rev Direct"
+    operation: if_else
+
+    depends_on:
+      - bp_sales_2026_direct_computed
+      - bp_sales_2026_direct_override
+
+    condition:
+      operator: not_null
+      left:
+        column: bp_sales_2026_direct_override
+
+    then:
+      column: bp_sales_2026_direct_override
+
+    else:
+      column: bp_sales_2026_direct_computed
+
+
+  bp_gp_dop_2026_direct_computed:
     enabled: true
     publish: false
 
-    output_name: "Target GP/DOP DIRECT"
     operation: aggregate_sum
 
     source_dataset:
@@ -163,6 +199,44 @@ aggregation_metrics:
 
     value_column: fy26_gp
     default: 0
+
+
+  bp_gp_dop_2026_direct_override:
+    enabled: true
+    publish: false
+    operation: lookup
+
+    dataset: precompute_exceptions
+    source_keys:
+      - employee_id
+    reference_keys:
+      - employee_id
+    value_column: target_gp_dop_direct_override
+    cardinality: many_to_one
+    join_type: left
+
+
+  bp_gp_dop_2026_direct:
+    enabled: true
+    publish: false
+
+    output_name: "Target GP/DOP DIRECT"
+    operation: if_else
+
+    depends_on:
+      - bp_gp_dop_2026_direct_computed
+      - bp_gp_dop_2026_direct_override
+
+    condition:
+      operator: not_null
+      left:
+        column: bp_gp_dop_2026_direct_override
+
+    then:
+      column: bp_gp_dop_2026_direct_override
+
+    else:
+      column: bp_gp_dop_2026_direct_computed
 
 
   # =======================================================
@@ -268,11 +342,9 @@ aggregation_metrics:
   # constant zero
   # =======================================================
 
-  shared_accounts_revenue:
+  shared_accounts_revenue_computed:
     enabled: true
-    publish: true
-
-    output_name: "Shared Accounts in Regional Currency (Revenue)"
+    publish: false
 
     operation:
       role_mapping: shared.operation
@@ -300,6 +372,29 @@ aggregation_metrics:
       role_mapping: shared.placeholder_value
 
 
+  shared_accounts_revenue:
+    enabled: true
+    publish: true
+
+    output_name: "Shared Accounts in Regional Currency (Revenue)"
+    operation: if_else
+
+    depends_on:
+      - shared_accounts_revenue_computed
+      - ytd_actual_revenue_override
+
+    condition:
+      operator: not_null
+      left:
+        column: ytd_actual_revenue_override
+
+    then:
+      value: 0
+
+    else:
+      column: shared_accounts_revenue_computed
+
+
   # =======================================================
   # SIP 14
   #
@@ -310,11 +405,9 @@ aggregation_metrics:
   # constant zero
   # =======================================================
 
-  shared_accounts_gp:
+  shared_accounts_gp_computed:
     enabled: true
-    publish: true
-
-    output_name: "Shared Accounts in Regional Currency (GP)"
+    publish: false
 
     operation:
       role_mapping: shared.operation
@@ -340,6 +433,29 @@ aggregation_metrics:
 
     value:
       role_mapping: shared.placeholder_value
+
+
+  shared_accounts_gp:
+    enabled: true
+    publish: true
+
+    output_name: "Shared Accounts in Regional Currency (GP)"
+    operation: if_else
+
+    depends_on:
+      - shared_accounts_gp_computed
+      - ytd_actual_gp_dop_override
+
+    condition:
+      operator: not_null
+      left:
+        column: ytd_actual_gp_dop_override
+
+    then:
+      value: 0
+
+    else:
+      column: shared_accounts_gp_computed
 
 
 # =========================================================

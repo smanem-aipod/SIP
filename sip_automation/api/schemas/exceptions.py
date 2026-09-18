@@ -37,6 +37,8 @@ class PrecomputeExceptionRequest(BaseModel):
     months_eligible_override: float | None = None
     ytd_actual_revenue_override: float | None = None
     ytd_actual_gp_dop_override: float | None = None
+    target_sales_rev_direct_override: float | None = None
+    target_gp_dop_direct_override: float | None = None
 
     bp_sga: float | None = None
     ytd_sga: float | None = None
@@ -69,6 +71,8 @@ class PrecomputeExceptionResponse(BaseModel):
     months_eligible_override: float | None = None
     ytd_actual_revenue_override: float | None = None
     ytd_actual_gp_dop_override: float | None = None
+    target_sales_rev_direct_override: float | None = None
+    target_gp_dop_direct_override: float | None = None
 
     bp_sga: float | None = None
     ytd_sga: float | None = None
