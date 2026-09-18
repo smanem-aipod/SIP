@@ -300,6 +300,9 @@ def get_exclusions() -> ExclusionsResponse:
 def save_exclusions(body: ExclusionsRequest) -> ExclusionsResponse:
     """Overwrite the persisted exclusion list."""
     store = _get_exclusions_store()
-    cleaned = sorted(set(str(i).strip() for i in body.excluded_employee_ids if str(i).strip()))
+    # Normalize to uppercase so this always matches the employee_id casing
+    # used in canonical data (e.g. "EMP_100") regardless of how the caller
+    # typed it - a case mismatch here silently excludes no one.
+    cleaned = sorted(set(str(i).strip().upper() for i in body.excluded_employee_ids if str(i).strip()))
     store.save(cleaned)
     return ExclusionsResponse(excluded_employee_ids=cleaned)

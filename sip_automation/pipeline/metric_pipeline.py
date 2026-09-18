@@ -374,10 +374,13 @@ class MetricPipeline:
         excluded_ids = store.load()
         if not excluded_ids:
             return employee
-        excluded_set = {str(i).strip() for i in excluded_ids}
+        # Compare case-insensitively - the exclusion list is normalized to
+        # uppercase on save, but this also protects against any entries
+        # saved before that normalization existed.
+        excluded_set = {str(i).strip().upper() for i in excluded_ids}
         before = len(employee)
         employee = employee[
-            ~employee["employee_id"].astype(str).str.strip().isin(excluded_set)
+            ~employee["employee_id"].astype(str).str.strip().str.upper().isin(excluded_set)
         ].copy()
         logger.info(
             "hr_exclusions_applied",
