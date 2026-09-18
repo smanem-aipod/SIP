@@ -179,6 +179,11 @@
   // Shows which fiscal quarter/year calculations are currently running
   // against (config/calculations/sip_metrics.yaml parameters.quarter /
   // parameters.fiscal_year) - one global value, same for every run.
+  // fiscal_year has no admin UI control (only "quarter" does - see
+  // PARAMETER_GROUPS), so it's cached here to reuse when the badge needs
+  // to be updated after an Apply that only changed the quarter.
+  let calculationPeriodFiscalYear = null;
+
   async function loadCalculationPeriodBadge() {
     try {
       const response = await fetch(`${API_BASE}/parameters`, { cache: "no-store" });
@@ -189,6 +194,7 @@
       const fiscalYear = data && data.fiscal_year;
 
       if (quarter && fiscalYear) {
+        calculationPeriodFiscalYear = fiscalYear;
         calculationPeriodBadge.textContent = `Running calculations for ${quarter} FY${fiscalYear}`;
         calculationPeriodBadge.hidden = false;
       } else {
@@ -3346,6 +3352,20 @@
       parametersStatus.textContent = `Parameters applied successfully. Applied: ${appliedParams}`;
       parametersStatus.hidden = false;
       parametersError.hidden = true;
+
+      // The top-of-page badge ("Running calculations for Q# FY####") is
+      // only ever loaded once from the GLOBAL config default
+      // (GET /parameters), which this per-run override never changes - so
+      // re-fetching it here would still show the old quarter. Update the
+      // badge directly from what was actually just applied instead.
+      // fiscal_year isn't an admin-editable field (only quarter is), so
+      // reuse the fiscal year already shown rather than expecting it in
+      // calculationParams.
+      if (calculationParams.quarter && calculationPeriodFiscalYear) {
+        calculationPeriodBadge.textContent =
+          `Running calculations for ${calculationParams.quarter} FY${calculationPeriodFiscalYear}`;
+        calculationPeriodBadge.hidden = false;
+      }
     } catch (err) {
       parametersStatus.hidden = true;
       parametersError.textContent = `Failed to apply parameters: ${err.message || err}`;
