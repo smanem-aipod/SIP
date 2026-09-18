@@ -526,6 +526,12 @@
   // admin queue up several deletes, review them, and apply them (and
   // recalculate) all at once instead of once per click. Keyed by exception id.
   let exceptionsPendingDeleteIds = new Set();
+  // Employee IDs (or upload summaries) changed via Save/Upload since the
+  // last successful recalculate - shown in the status banner so nothing
+  // gets lost track of if several exceptions are edited before clicking
+  // "Recalculate Now". A JS Set preserves insertion order, so the banner
+  // lists changes in the order they were made.
+  let exceptionsPendingRecalcNotes = new Set();
 
   // ---- Section visibility ----
   // Single source of truth for "only one main section visible at a time".
@@ -1583,6 +1589,7 @@
       exceptionsColumnFilters = makeDefaultExceptionsColumnFilters();
       exceptionsPendingDeleteIds.clear();
       exceptionsPendingDeletePanel.hidden = true;
+      exceptionsPendingRecalcNotes.clear();
       loadExceptionCategories();
       loadExceptions();
     } else if (showingCorrections) {
@@ -2061,16 +2068,29 @@
       // "Save" only persists the exception - it must NOT recalculate or
       // change results. Only "Apply" (or "Recalculate Now") should do that.
       if (currentRunId) {
-        exceptionsStatus.textContent =
-          "Saved. Results are not updated yet - click \"Recalculate Now\" to apply this change.";
-        exceptionsStatus.hidden = false;
-        exceptionsRecalculateButton.hidden = false;
+        exceptionsPendingRecalcNotes.add(payload.employee_id);
+        showPendingRecalcBanner();
       }
     } catch (err) {
       exceptionFormError.textContent = err.message || String(err);
       exceptionFormError.hidden = false;
     }
   });
+
+  // Renders the accumulated list of changes (Save/Upload) made since the
+  // last successful recalculate, so it's still clear what's pending even
+  // after editing several exceptions in a row instead of just the most
+  // recent one.
+  function showPendingRecalcBanner() {
+    const notes = Array.from(exceptionsPendingRecalcNotes);
+    const summary = notes.length > 1
+      ? `${notes.length} changes since last recalculate (${notes.join(", ")})`
+      : notes[0] || "Saved";
+    exceptionsStatus.textContent =
+      `${summary}. Results are not updated yet - click "Recalculate Now" to apply.`;
+    exceptionsStatus.hidden = false;
+    exceptionsRecalculateButton.hidden = false;
+  }
 
   async function recalculateAndShowResults(navigateToResults) {
     if (!currentRunId) {
@@ -2101,6 +2121,11 @@
       populateRoleSelect(calculationsResult.enabled_roles, calculationsResult.role_row_counts);
       await loadResults(roleSelect.value);
       persistRun(currentRunId, calculationsResult.enabled_roles, calculationsResult.role_row_counts);
+
+      // Recalculation succeeded, so every change tracked in the pending
+      // banner is now reflected in results - clear it before either branch
+      // below decides what (if anything) to show next.
+      exceptionsPendingRecalcNotes.clear();
 
       if (navigateToResults) {
         // "Apply" was clicked - jump straight to Results with the freshly
@@ -2266,8 +2291,15 @@
       exceptionsPendingDeleteIds.clear();
       await loadExceptions();
       renderPendingDeletions();
-      exceptionsStatus.hidden = true;
-      exceptionsRecalculateButton.hidden = false;
+      if (result.saved_count > 0) {
+        exceptionsPendingRecalcNotes.add(
+          `${result.saved_count} employee(s) via upload`
+        );
+        showPendingRecalcBanner();
+      } else {
+        exceptionsStatus.hidden = true;
+        exceptionsRecalculateButton.hidden = false;
+      }
     } catch (err) {
       exceptionsStatus.hidden = true;
       exceptionsError.textContent = `Upload failed: ${err.message || err}`;
