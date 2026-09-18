@@ -3010,13 +3010,46 @@
       tdNote.appendChild(makeNoteInput(key, override ? override.note : null));
       tr.appendChild(tdNote);
 
+      // Actions - only a manually-added override can be removed; there's
+      // nothing to delete for a purely computed row.
+      const tdActions = document.createElement("td");
+      if (override) {
+        const deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.className = "btn btn-delete";
+        deleteBtn.textContent = "Delete";
+        deleteBtn.style.fontSize = "12px";
+        deleteBtn.addEventListener("click", () => {
+          const confirmed = window.confirm(
+            `Remove the manually-added override for ${override.cam_id}` +
+            (override.division_node ? ` / ${override.division_node}` : " (all divisions)") +
+            `? Allocation will revert to the computed value. Click "Apply All Changes" to save this.`
+          );
+          if (!confirmed) return;
+          // Stage the deletion the same way an edit is staged - all-null
+          // pending fields with existing_id set tells Apply All Changes to
+          // DELETE this override instead of PUT-ing it (see below).
+          camPending[key] = {
+            cam_id: override.cam_id,
+            division_node: override.division_node || null,
+            pct_rev: null,
+            pct_gp: null,
+            note: null,
+            existing_id: override.id,
+          };
+          renderCamTable();
+        });
+        tdActions.appendChild(deleteBtn);
+      }
+      tr.appendChild(tdActions);
+
       tbody.appendChild(tr);
     });
 
     if (visibleRows.length === 0) {
       const tr = document.createElement("tr");
       const td = document.createElement("td");
-      td.colSpan = 7; td.style.textAlign = "center"; td.style.color = "var(--color-muted)";
+      td.colSpan = 8; td.style.textAlign = "center"; td.style.color = "var(--color-muted)";
       td.textContent = camSearchTerm ? "No CAM employees match your search."
         : currentRunId ? "No CAM employees found in this run's BP data."
         : "Run the pipeline first to see computed allocation ratios.";
@@ -3114,7 +3147,24 @@
 
     try {
       for (const [, entry] of Object.entries(camPending)) {
-        if (entry.pct_rev === null && entry.pct_gp === null && !entry.note) continue;
+        const isEmpty = entry.pct_rev === null && entry.pct_gp === null && !entry.note;
+
+        if (isEmpty) {
+          if (!entry.existing_id) continue; // nothing entered, nothing to create
+
+          // All fields cleared for a previously-saved override (via the
+          // Delete button, or by manually clearing every field) - remove
+          // it instead of silently ignoring it, so it actually goes away
+          // rather than reverting the row to computed on screen while the
+          // override still exists in storage.
+          const delResp = await fetch(
+            `${CAM_API_BASE}/${entry.existing_id}?changed_by=${encodeURIComponent(currentUsername())}`,
+            { method: "DELETE" }
+          );
+          if (!delResp.ok && delResp.status !== 204) throw new Error(await readErrorDetail(delResp));
+          continue;
+        }
+
         const payload = {
           cam_id: entry.cam_id,
           division_node: entry.division_node || null,
@@ -3203,28 +3253,6 @@
       camFormError.hidden = false;
     }
   });
-
-  async function deleteCamOverride(override) {
-    const confirmed = window.confirm(
-      `Delete the CAM allocation override for ${override.cam_id}` +
-      (override.division_node ? ` / ${override.division_node}` : " (all divisions)") +
-      `? This cannot be undone.`
-    );
-    if (!confirmed) return;
-    camError.hidden = true;
-    try {
-      const resp = await fetch(
-        `${CAM_API_BASE}/${override.id}?changed_by=${encodeURIComponent(currentUsername())}`,
-        { method: "DELETE" }
-      );
-      if (!resp.ok && resp.status !== 204) throw new Error(await readErrorDetail(resp));
-      await loadCamOverrides();
-      await camRecalculateAndShowResults(true);
-    } catch (err) {
-      camError.textContent = err.message || String(err);
-      camError.hidden = false;
-    }
-  }
 
   async function camRecalculateAndShowResults(navigateToResults) {
     if (!currentRunId) {
