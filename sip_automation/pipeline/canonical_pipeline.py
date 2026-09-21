@@ -453,6 +453,7 @@ class CanonicalPipeline:
             "ship_to",
             "material",
             "seller_id",
+            "employee_id",
         ]:
             if column_name in result.columns:
                 result[column_name] = (
