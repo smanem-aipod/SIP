@@ -654,13 +654,16 @@ class MetricPipeline:
                 "division_node",
             ],
         )
+        # am_id/dm_id deliberately excluded - despite the name, these hold
+        # the AM/DM's full name (e.g. "Torvik Noxen"), not an employee ID,
+        # and aren't referenced as a join key anywhere in role_mappings.yaml
+        # or sip_metrics.yaml (only cam_id/bdm_id are). Uppercasing them
+        # would just corrupt a display value with no matching benefit.
         bp = cls._uppercase_id_columns(
             bp,
             [
                 "employee_id",
                 "employee_id_only_for_shared",
-                "am_id",
-                "dm_id",
                 "cam_id",
                 "bdm_id",
             ],
