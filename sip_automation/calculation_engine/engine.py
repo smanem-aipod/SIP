@@ -21,6 +21,10 @@ from sip_automation.calculation_engine.models import (
 from sip_automation.calculation_engine.registry import (
     OperationRegistry,
 )
+from sip_automation.calculation_engine.string_matching import (
+    flexible_eq,
+    flexible_isin,
+)
 from sip_automation.calculation_engine.validators import (
     MetricPlanValidator,
 )
@@ -274,10 +278,10 @@ class MetricEngine:
         series = dataframe[column_name]
 
         if operator == "equals":
-            mask = series.eq(value)
+            mask = flexible_eq(series, value)
 
         elif operator == "not_equals":
-            mask = series.ne(value)
+            mask = ~flexible_eq(series, value)
 
         elif operator == "in":
             values = (
@@ -285,7 +289,7 @@ class MetricEngine:
                 if isinstance(value, list)
                 else [value]
             )
-            mask = series.isin(values)
+            mask = flexible_isin(series, values)
 
         elif operator == "not_in":
             values = (
@@ -293,7 +297,7 @@ class MetricEngine:
                 if isinstance(value, list)
                 else [value]
             )
-            mask = ~series.isin(values)
+            mask = ~flexible_isin(series, values)
 
         elif operator == "is_null":
             mask = series.isna()

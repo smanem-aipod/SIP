@@ -11,6 +11,10 @@ from sip_automation.calculation_engine.operations.base import (
     BaseOperation,
     OperationExecutionError,
 )
+from sip_automation.calculation_engine.string_matching import (
+    flexible_isin,
+    flexible_series_eq,
+)
 
 
 class ConditionalSupport(BaseOperation):
@@ -99,7 +103,7 @@ class ConditionalSupport(BaseOperation):
                 context,
             )
 
-            result = left.isin(values)
+            result = flexible_isin(left, values)
 
             if operator == "not_in":
                 result = ~result
@@ -119,10 +123,10 @@ class ConditionalSupport(BaseOperation):
         )
 
         if operator == "equals":
-            result = left.eq(right)
+            result = flexible_series_eq(left, right)
 
         elif operator == "not_equals":
-            result = left.ne(right)
+            result = ~flexible_series_eq(left, right)
 
         elif operator == "greater_than":
             result = left.gt(right)
