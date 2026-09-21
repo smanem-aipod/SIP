@@ -635,6 +635,10 @@ class MetricPipeline:
                 "bu",
             ],
         )
+        employee = cls._uppercase_id_columns(
+            employee,
+            ["employee_id"],
+        )
 
         bp = cls._normalize_string_columns(
             bp,
@@ -648,6 +652,17 @@ class MetricPipeline:
                 "cam_id",
                 "bdm_id",
                 "division_node",
+            ],
+        )
+        bp = cls._uppercase_id_columns(
+            bp,
+            [
+                "employee_id",
+                "employee_id_only_for_shared",
+                "am_id",
+                "dm_id",
+                "cam_id",
+                "bdm_id",
             ],
         )
 
@@ -664,6 +679,10 @@ class MetricPipeline:
                 "material",
             ],
         )
+        sales = cls._uppercase_id_columns(
+            sales,
+            ["employee_id"],
+        )
         fx_rates = cls._normalize_string_columns(
             fx_rates,
             [
@@ -677,6 +696,10 @@ class MetricPipeline:
                 "payroll_currency",
             ],
         )
+        nacs_guarantee = cls._uppercase_id_columns(
+            nacs_guarantee,
+            ["employee_id"],
+        )
 
         ytd_payments = cls._normalize_string_columns(
             ytd_payments,
@@ -685,12 +708,20 @@ class MetricPipeline:
                 "currency_code",
             ],
         )
+        ytd_payments = cls._uppercase_id_columns(
+            ytd_payments,
+            ["employee_id"],
+        )
 
         bdm = cls._normalize_string_columns(
             bdm,
             [
                 "bdm_id",
             ],
+        )
+        bdm = cls._uppercase_id_columns(
+            bdm,
+            ["bdm_id"],
         )
                             
         return (
@@ -719,6 +750,41 @@ class MetricPipeline:
                 .astype("string")
                 .str.strip()
                 .replace("", pd.NA)
+            )
+
+        return result
+
+    @staticmethod
+    def _uppercase_id_columns(
+        dataframe: pd.DataFrame,
+        columns: list[str],
+    ) -> pd.DataFrame:
+        """
+        Uppercase known ID/key columns (after _normalize_string_columns has
+        already stripped whitespace), so joins across independently
+        exported source files - employee_id in employee vs bp vs sales;
+        am_id/dm_id/cam_id/bdm_id in bp vs employee - match regardless of
+        casing differences between exports. The exclusion store and this
+        pipeline's HR-exclusion filter already uppercase employee_id before
+        comparing; this closes the same gap for every other join key that
+        feeds the calculation engine (see DEF-023).
+
+        Deliberately scoped to ID columns only - NOT applied to free-text
+        or display columns (preferred_name, job_profile_for_sip,
+        descriptions), which either need to preserve their original
+        casing for display, or already have their own normalization
+        convention elsewhere (sales_group_description/
+        sales_office_description are lowercased, not uppercased, in
+        CanonicalPipeline._normalize_canonical_values).
+        """
+        result = dataframe.copy()
+
+        for column_name in columns:
+            if column_name not in result.columns:
+                continue
+
+            result[column_name] = (
+                result[column_name].str.upper()
             )
 
         return result

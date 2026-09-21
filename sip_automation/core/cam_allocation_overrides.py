@@ -92,7 +92,11 @@ class CAMAllocationOverridesStore:
         *,
         changed_by: str | None = None,
     ) -> CAMAllocationOverride:
-        cam_id = str(payload.get("cam_id") or "").strip()
+        # Uppercase (not just strip) so this always matches bp.cam_id's
+        # casing, regardless of how Finance typed the CAM ID - aggregate.py
+        # compares both sides with only .strip(), so a case mismatch here
+        # would silently apply the override to nobody (see DEF-023).
+        cam_id = str(payload.get("cam_id") or "").strip().upper()
         if not cam_id:
             raise _ValidationError("cam_id is required.")
 
@@ -143,7 +147,7 @@ class CAMAllocationOverridesStore:
         updated = dict(rows[idx])
 
         if "cam_id" in payload:
-            v = str(payload["cam_id"] or "").strip()
+            v = str(payload["cam_id"] or "").strip().upper()
             if not v:
                 raise _ValidationError("cam_id is required.")
             updated["cam_id"] = v
