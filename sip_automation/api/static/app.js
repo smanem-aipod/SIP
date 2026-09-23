@@ -2266,6 +2266,17 @@
       payload[key] = parseOptionalNumber(valueInput);
     });
 
+    if (
+      payload.months_eligible_override !== null &&
+      (
+        !Number.isInteger(payload.months_eligible_override) ||
+        payload.months_eligible_override < 1 ||
+        payload.months_eligible_override > 12
+      )
+    ) {
+      validationError = "# Months Eligible (Override) must be a whole number between 1 and 12.";
+    }
+
     EXCEPTION_SGA_FIELDS.forEach(({ key, valueInput }) => {
       payload[key] = parseOptionalNumber(valueInput);
     });

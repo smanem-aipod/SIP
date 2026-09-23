@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class PrecomputeExceptionRequest(BaseModel):
@@ -44,6 +44,17 @@ class PrecomputeExceptionRequest(BaseModel):
     ytd_sga: float | None = None
 
     changed_by: str | None = None
+
+    @field_validator("months_eligible_override")
+    @classmethod
+    def _validate_months_eligible_override(cls, value: float | None) -> float | None:
+        if value is None:
+            return value
+        if value != int(value) or value < 1 or value > 12:
+            raise ValueError(
+                "months_eligible_override must be a whole number between 1 and 12."
+            )
+        return value
 
 
 class PrecomputeExceptionResponse(BaseModel):
