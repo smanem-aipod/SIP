@@ -3012,6 +3012,12 @@
   // Pending inline edits: key = "cam_id|division_node" → {cam_id, division_node, pct_rev, pct_gp, note, existing_id}
   const camPending = {};
   let camDivisionTotalProblems = [];
+  // True after a modal "Save" (add/edit an override without recalculating)
+  // - separate from camPending since a modal save is already persisted to
+  // the backend, not an in-table edit that could still be discarded. Only
+  // affects whether "Apply All Changes" shows up as a way to trigger the
+  // still-needed recalculation.
+  let camSavedWithoutRecalc = false;
 
   // Effective % for a row = pending edit (if the field was touched, even
   // to clear it back to blank) > saved override > computed default.
@@ -3277,9 +3283,16 @@
 
   function updateCamPendingHint() {
     const count = Object.keys(camPending).length;
-    if (count === 0) {
+    if (count === 0 && !camSavedWithoutRecalc) {
       camPendingHint.textContent = "";
       camApplyAllButton.hidden = true;
+      camDiscardButton.hidden = true;
+    } else if (count === 0) {
+      // Only a modal-saved override is pending recalculation - nothing to
+      // discard (it's already persisted), so hide Discard but still offer
+      // Apply All Changes to trigger the recalculation.
+      camPendingHint.textContent = 'Override saved. Click "Apply All Changes" to recalculate.';
+      camApplyAllButton.hidden = false;
       camDiscardButton.hidden = true;
     } else {
       camPendingHint.textContent = `${count} row(s) with pending changes. Click "Apply All Changes" to save and recalculate.`;
@@ -3399,6 +3412,7 @@
       }
       // Clear pending
       Object.keys(camPending).forEach((k) => delete camPending[k]);
+      camSavedWithoutRecalc = false;
       await loadCamOverrides();
       // Re-run calculations
       await camRecalculateAndShowResults(false);
@@ -3462,7 +3476,21 @@
       if (!resp.ok) throw new Error(await readErrorDetail(resp));
       closeCamModal();
       await loadCamOverrides();
-      await camRecalculateAndShowResults(clickedApply);
+
+      if (clickedApply) {
+        await camRecalculateAndShowResults(true);
+      } else {
+        // "Save" persists the override only - it does NOT recalculate.
+        // Matches the Data Corrections/Precompute Exceptions pattern:
+        // saving stages the change, and a separate explicit action
+        // ("Apply All Changes") is what actually recalculates.
+        camSavedWithoutRecalc = true;
+        updateCamPendingHint();
+        camError.hidden = true;
+        camStatus.textContent =
+          "Saved. Click \u201cApply All Changes\u201d to recalculate with this override.";
+        camStatus.hidden = false;
+      }
     } catch (err) {
       camFormError.textContent = err.message || String(err);
       camFormError.hidden = false;
