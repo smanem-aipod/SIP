@@ -14,7 +14,7 @@ class CalculationParametersRequest(BaseModel):
     """
     
     # Selected calculation period
-    quarter: Literal["Q2", "Q3", "Q4"] | None = None
+    quarter: Literal["Q1", "Q2", "Q3", "Q4"] | None = None
 
     # Maximum SIP rules
     q2_max_sip_multiplier: float | None = None

@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Annotated
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 
 from sip_automation.core.hr_exclusions import HRExclusionsStore
@@ -181,7 +181,12 @@ def _normalize_yes_no(value) -> str:
     return "Yes" if text in ("yes", "y", "true", "1") else "No"
 
 
-def _run_reconciliation(q1: pd.DataFrame, q2: pd.DataFrame) -> dict:
+def _run_reconciliation(
+    q1: pd.DataFrame,
+    q2: pd.DataFrame,
+    previous_label: str = "Q1",
+    current_label: str = "Q2",
+) -> dict:
     changes: list[dict] = []
 
     # New joiners vs. rehires/movements - resolve Hire Date in both files so
@@ -220,13 +225,13 @@ def _run_reconciliation(q1: pd.DataFrame, q2: pd.DataFrame) -> dict:
             # Can't evaluate Hire Date at all - fall back to the old
             # presence-based behavior rather than silently miscategorizing.
             change_type = "New Joiner"
-            reason = "Employee exists in Q2 but not in Q1"
+            reason = f"Employee exists in {current_label} but not in {previous_label}"
         elif is_new_employee:
             change_type = "New Joiner"
-            reason = "Employee exists in Q2 but not in Q1, and Hire Date is after Q1's latest known hire"
+            reason = f"Employee exists in {current_label} but not in {previous_label}, and Hire Date is after {previous_label}'s latest known hire"
         else:
             change_type = "Rehire / Movement"
-            reason = "Employee exists in Q2 but not in Q1, but Hire Date predates Q1 - not a new hire"
+            reason = f"Employee exists in {current_label} but not in {previous_label}, but Hire Date predates {previous_label} - not a new hire"
 
         changes.append({
             "employee_id": row[_KEY_COL],
@@ -247,7 +252,7 @@ def _run_reconciliation(q1: pd.DataFrame, q2: pd.DataFrame) -> dict:
             "change_type": "Leaver",
             "field": "Employment Status",
             "metric": "Leaver",
-            "reason": "Employee exists in Q1 but not in Q2",
+            "reason": f"Employee exists in {previous_label} but not in {current_label}",
             "q1_value": "Present",
             "q2_value": "Not Present",
         })
@@ -350,15 +355,23 @@ class ExclusionsResponse(BaseModel):
 async def compare_hr_files(
     q1_file: Annotated[UploadFile, File()],
     q2_file: Annotated[UploadFile, File()],
+    previous_label: Annotated[str, Form()] = "Q1",
+    current_label: Annotated[str, Form()] = "Q2",
 ) -> dict:
-    """Compare two HR roster files and return the list of differences."""
+    """Compare two HR roster files and return the list of differences.
+
+    `previous_label`/`current_label` are the real quarter labels chosen on
+    the frontend's Select Quarter page (e.g. "Q2"/"Q3") - they're used only
+    for the comparison reason text, defaulting to the generic "Q1"/"Q2"
+    wording for any caller that doesn't send them.
+    """
     try:
         q1 = _load_roster(q1_file)
         q2 = _load_roster(q2_file)
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Failed to read HR files: {exc}") from exc
 
-    return _run_reconciliation(q1, q2)
+    return _run_reconciliation(q1, q2, previous_label=previous_label, current_label=current_label)
 
 
 @router.get("/exclusions", response_model=ExclusionsResponse, tags=["hr-reconciliation"])

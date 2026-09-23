@@ -143,6 +143,32 @@
     </div>
   </div>
 
+  <!-- Quarter selection: shown first whenever a new run starts. The
+       chosen quarter drives HR Reconciliation's file labels/comments and
+       becomes the actual SIP calculation "quarter" parameter. -->
+  <section id="quarter-selection-section" class="card" hidden>
+    <h2>Select Quarter</h2>
+    <p class="subtitle">Choose the quarter you're running this SIP cycle for. This also determines which two HR roster periods are compared during reconciliation.</p>
+
+    <div class="file-grid" style="margin-top: 20px;">
+      <label class="file-field">
+        <span>Quarter</span>
+        <select id="quarter-select-input">
+          <option value="Q1">Q1</option>
+          <option value="Q2">Q2</option>
+          <option value="Q3">Q3</option>
+          <option value="Q4">Q4</option>
+        </select>
+      </label>
+    </div>
+
+    <p id="quarter-select-hint" class="hint" style="margin-top: 8px;"></p>
+
+    <div style="display: flex; align-items: center; gap: 12px; margin-top: 20px;">
+      <button type="button" id="quarter-select-continue-button" class="btn btn-primary">Continue</button>
+    </div>
+  </section>
+
   <!-- HR Reconciliation: shown after login when no active run. -->
   <section id="hr-reconciliation-section" class="card" hidden>
     <h2>HR Reconciliation</h2>
@@ -155,11 +181,11 @@
 
     <div class="file-grid" style="margin-top: 20px;">
       <label class="file-field">
-        <span>Q1 HR File (previous period)</span>
+        <span id="hr-q1-label">Q1 HR File (previous period)</span>
         <input type="file" id="hr-q1-file" accept=".xlsx,.xlsm,.xlsb,.xls,.csv" />
       </label>
       <label class="file-field">
-        <span>Q2 HR File (current period)</span>
+        <span id="hr-q2-label">Q2 HR File (current period)</span>
         <input type="file" id="hr-q2-file" accept=".xlsx,.xlsm,.xlsb,.xls,.csv" />
       </label>
     </div>
@@ -190,8 +216,8 @@
               <th>Change Type</th>
               <th>Field</th>
               <th>Reason</th>
-              <th>Q1 Value</th>
-              <th>Q2 Value</th>
+              <th id="hr-th-q1-value">Q1 Value</th>
+              <th id="hr-th-q2-value">Q2 Value</th>
             </tr>
           </thead>
           <tbody></tbody>

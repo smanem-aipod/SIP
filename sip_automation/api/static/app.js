@@ -11,6 +11,29 @@
   const HR_DONE_KEY = "sip_automation_hr_done";
   const PAGE_SIZE = 25;
   const STORAGE_KEY = "sip_automation_last_run";
+  // The quarter chosen on the new "Select Quarter" landing page (shown
+  // before HR Reconciliation on every new run) - single source of truth
+  // for HR Recon's file labels/reason text, the calculation period badge,
+  // and the actual SIP calculation "quarter" parameter (see
+  // showQuarterSelectionSection/nextQuarter below).
+  const SELECTED_QUARTER_KEY = "sip_automation_selected_quarter";
+  const QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
+
+  // Delays calling `fn` until `wait` ms after the last call - used for
+  // search/filter inputs whose handler tears down and rebuilds a whole
+  // table (fresh DOM nodes + event listeners per row) on every keystroke.
+  // Without this, typing quickly queues up several full synchronous
+  // rebuilds back-to-back faster than the browser can finish each one,
+  // which on a large table can make the page unresponsive or blank until
+  // a hard refresh (see DEF-024 - CAM Allocations search).
+  function debounce(fn, wait) {
+    let timeoutId;
+    return function (...args) {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => fn.apply(this, args), wait);
+    };
+  }
+
 
   // Simple demo login gate: client-side only, any username accepted, one
   // shared password. No backend/session/API protection - this is purely a
@@ -119,7 +142,11 @@
 
   // Parameters rendered as a <select> dropdown instead of a number input.
   const SELECT_PARAMETER_OPTIONS = {
-    quarter: ["Q2", "Q3", "Q4"],
+    // Q1 added alongside the Select Quarter landing page (which allows all
+    // 4 quarters) - without it, selecting Q1 there left this dropdown with
+    // no matching <option>, reintroducing the exact mismatch this feature
+    // was meant to fix.
+    quarter: ["Q1", "Q2", "Q3", "Q4"],
   };
 
   // Mirrors PRECOMPUTE_EXCEPTION_CATEGORIES in
@@ -164,6 +191,15 @@
           Object.entries(data).filter(([, value]) => value !== null && value !== undefined)
         );
 
+        // The quarter chosen on the Select Quarter landing page always
+        // wins over the global config default this just fetched - without
+        // this, opening Admin Settings (which calls this) after picking a
+        // quarter would silently revert the "quarter" parameter back to
+        // whatever's in sip_metrics.yaml.
+        if (selectedQuarter) {
+          liveCalculationDefaults.quarter = selectedQuarter;
+        }
+
         Object.keys(roleParameterState).forEach((role) => {
           roleParameterState[role] = {
             ...getDefaultParameterState(),
@@ -190,7 +226,11 @@
       if (!response.ok) throw new Error(await readErrorDetail(response));
 
       const data = await response.json();
-      const quarter = data && data.quarter;
+      // Prefer the quarter chosen on the Select Quarter landing page (the
+      // single source of truth for this run) over the global config
+      // default, so a page reload mid-run doesn't show a stale/mismatched
+      // quarter in the heading.
+      const quarter = selectedQuarter || (data && data.quarter);
       const fiscalYear = data && data.fiscal_year;
 
       if (quarter && fiscalYear) {
@@ -464,6 +504,10 @@
   const hrReconciliationSection = document.getElementById("hr-reconciliation-section");
   const hrQ1FileInput = document.getElementById("hr-q1-file");
   const hrQ2FileInput = document.getElementById("hr-q2-file");
+  const hrQ1Label = document.getElementById("hr-q1-label");
+  const hrQ2Label = document.getElementById("hr-q2-label");
+  const hrThQ1Value = document.getElementById("hr-th-q1-value");
+  const hrThQ2Value = document.getElementById("hr-th-q2-value");
   const hrCompareButton = document.getElementById("hr-compare-button");
   const hrReconError = document.getElementById("hr-recon-error");
   const hrReconUnmatchedWarning = document.getElementById("hr-recon-unmatched-warning");
@@ -482,6 +526,13 @@
   const hrConfirmButton = document.getElementById("hr-confirm-button");
   const hrSkipButton = document.getElementById("hr-skip-button");
 
+  // ---- Quarter Selection DOM refs ----
+  const quarterSelectionSection = document.getElementById("quarter-selection-section");
+  const quarterSelectInput = document.getElementById("quarter-select-input");
+  const quarterSelectHint = document.getElementById("quarter-select-hint");
+  const quarterSelectContinueButton = document.getElementById("quarter-select-continue-button");
+
+
   // ---- State ----
   let currentRunId = null;
   let currentColumns = [];
@@ -498,6 +549,12 @@
   let hrAllChanges = [];        // full diff from /compare
   let hrVisibleChanges = [];    // filtered by checkboxes
   let hrExcludedIds = new Set(); // employee IDs checked for exclusion
+
+  // ---- Quarter Selection state ----
+  // The quarter chosen on the landing page before HR Reconciliation - null
+  // until the user picks one (e.g. legacy sessionStorage from before this
+  // feature existed). See showQuarterSelectionSection/nextQuarter.
+  let selectedQuarter = sessionStorage.getItem(SELECTED_QUARTER_KEY) || null;
 
   // ---- CAM Allocations state ----
   let currentCamOverrides = [];
@@ -568,6 +625,7 @@
   // visible alongside whatever else is shown).
   function hideAllMainSections() {
     // Main navigable sections
+    quarterSelectionSection.hidden = true;
     hrReconciliationSection.hidden = true;
     hrExclusionsPanel.hidden = true;
     adminPasswordSection.hidden = true;
@@ -640,13 +698,33 @@
   // run (Start Over / Start New Run) - clears the persisted run too, unlike
   // a plain resetUI() (used e.g. on logout, where we want the previous run
   // to still be there on next login).
-  function resetUIForNewRun() {
+  async function resetUIForNewRun() {
     resetUI();
     clearPersistedRun();
     sessionStorage.removeItem(HR_DONE_KEY);
-    // Route back through HR reconciliation so user can update exclusions.
+
+    // Each new run starts with a clean slate - exclusions from a previous
+    // run should NOT carry forward (a new run means the roster should be
+    // evaluated fresh, not silently missing whoever was excluded last
+    // time). This only fires here, not on an incidental page reload
+    // mid-review, so it never wipes exclusions the user is still deciding
+    // on for the CURRENT run.
+    try {
+      await fetch(`${HR_API_BASE}/exclusions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ excluded_employee_ids: [] }),
+      });
+    } catch (_err) {
+      // Non-fatal - HR Reconciliation will still show whatever the backend
+      // has; worst case the user sees stale chips and can remove them there.
+    }
+
+    // Route back through Quarter Selection -> HR reconciliation so the user
+    // can update exclusions (and re-confirm/re-pick the quarter this run is
+    // for - it may differ from the last run).
     uploadSection.hidden = true;
-    showHrSection();
+    showQuarterSelectionSection();
   }
 
   // ---- Persist the completed run across page reloads (sessionStorage) ----
@@ -1115,6 +1193,68 @@
     if (event.target === rowModal) rowModal.hidden = true;
   });
 
+  // ---- Quarter Selection ----
+  // Cycles Q1 -> Q2 -> Q3 -> Q4 -> Q1. Only used for label text (which HR
+  // roster period pairs with which) - no fiscal-year date math involved.
+  function nextQuarter(quarter) {
+    const index = QUARTERS.indexOf(quarter);
+    if (index === -1) return null;
+    return QUARTERS[(index + 1) % QUARTERS.length];
+  }
+
+  async function showQuarterSelectionSection() {
+    hideAllMainSections();
+    quarterSelectInput.value = selectedQuarter && QUARTERS.includes(selectedQuarter)
+      ? selectedQuarter
+      : "Q1";
+    quarterSelectHint.textContent =
+      `Reconciliation will compare ${quarterSelectInput.value} (previous) vs ${nextQuarter(quarterSelectInput.value)} (current) HR rosters.`;
+    quarterSelectionSection.hidden = false;
+  }
+
+  quarterSelectInput.addEventListener("change", function () {
+    quarterSelectHint.textContent =
+      `Reconciliation will compare ${quarterSelectInput.value} (previous) vs ${nextQuarter(quarterSelectInput.value)} (current) HR rosters.`;
+  });
+
+  // Applies the chosen quarter everywhere it needs to take effect: HR
+  // Reconciliation's labels/reason text (handled in showHrSection, using
+  // the module-level `selectedQuarter`), the calculation period badge, and
+  // - by seeding the same shared state every existing calculation call
+  // site already reads from - the actual SIP calculation "quarter"
+  // parameter. This makes the landing page the single source of truth
+  // without needing to touch Stage-3 initial calculation, Recalculate
+  // buttons, or Admin Parameters individually.
+  function setSelectedQuarter(quarter) {
+    selectedQuarter = quarter;
+    sessionStorage.setItem(SELECTED_QUARTER_KEY, quarter);
+
+    // Always set this (creating liveCalculationDefaults if it hasn't
+    // loaded yet, seeded from DEFAULT_PARAMETERS so other fields stay
+    // populated until the real fetch resolves) - loadCalculationParameters()
+    // re-applies the same override after any later fetch, so this can
+    // never get silently reverted regardless of call order (see
+    // loadCalculationParameters).
+    liveCalculationDefaults = {
+      ...DEFAULT_PARAMETERS,
+      ...(liveCalculationDefaults || {}),
+      quarter,
+    };
+    Object.keys(roleParameterState).forEach((role) => {
+      roleParameterState[role] = { ...roleParameterState[role], quarter };
+    });
+
+    if (calculationPeriodFiscalYear) {
+      calculationPeriodBadge.textContent = `Running calculations for ${quarter} FY${calculationPeriodFiscalYear}`;
+      calculationPeriodBadge.hidden = false;
+    }
+  }
+
+  quarterSelectContinueButton.addEventListener("click", function () {
+    setSelectedQuarter(quarterSelectInput.value);
+    showHrSection();
+  });
+
   // ---- HR Reconciliation ----
 
   async function showHrSection() {
@@ -1131,6 +1271,17 @@
     hrQ2FileInput.value = "";
     hrExcludeAll.checked = false;
     hrReconciliationSection.hidden = false;
+
+    // Labels reflect the quarter chosen on the landing page (previous =
+    // selected, current = the following quarter) - fall back to generic
+    // "Q1"/"Q2" wording if no quarter was ever selected (e.g. leftover
+    // sessionStorage from before this feature existed).
+    const previousLabel = selectedQuarter || "Q1";
+    const currentLabel = selectedQuarter ? nextQuarter(selectedQuarter) : "Q2";
+    hrQ1Label.textContent = `${previousLabel} HR File (previous period)`;
+    hrQ2Label.textContent = `${currentLabel} HR File (current period)`;
+    hrThQ1Value.textContent = `${previousLabel} Value`;
+    hrThQ2Value.textContent = `${currentLabel} Value`;
 
     // Show currently saved exclusions as removable chips.
     try {
@@ -1181,7 +1332,7 @@
     const q2 = hrQ2FileInput.files[0];
 
     if (!q1 || !q2) {
-      hrReconError.textContent = "Please select both Q1 and Q2 HR files before comparing.";
+      hrReconError.textContent = `Please select both ${hrQ1Label.textContent.split(" ")[0]} and ${hrQ2Label.textContent.split(" ")[0]} HR files before comparing.`;
       hrReconError.hidden = false;
       return;
     }
@@ -1197,6 +1348,11 @@
       const formData = new FormData();
       formData.append("q1_file", q1);
       formData.append("q2_file", q2);
+      // Real quarter labels for the comparison reason text (e.g. "Employee
+      // exists in Q3 but not in Q2") so it matches what's selected on the
+      // landing page instead of always saying "Q1"/"Q2".
+      formData.append("previous_label", selectedQuarter || "Q1");
+      formData.append("current_label", selectedQuarter ? nextQuarter(selectedQuarter) : "Q2");
 
       const resp = await fetch(`${HR_API_BASE}/compare`, { method: "POST", body: formData });
       if (!resp.ok) {
@@ -1300,8 +1456,8 @@
       ["change_type", "Change Type"],
       ["field", "Field"],
       ["reason", "Reason"],
-      ["q1_value", "Q1 Value"],
-      ["q2_value", "Q2 Value"],
+      ["q1_value", hrThQ1Value.textContent],
+      ["q2_value", hrThQ2Value.textContent],
     ];
     const lines = [columns.map(([, label]) => csvEscape(label)).join(",")];
     hrVisibleChanges.forEach((change) => {
@@ -1471,7 +1627,7 @@
         hideAllMainSections();
         uploadSection.hidden = false;
       } else {
-        showHrSection();
+        showQuarterSelectionSection();
       }
     }
 
@@ -3151,10 +3307,10 @@
     openCamModal(null, null);
   });
 
-  camSearchInput.addEventListener("input", function () {
+  camSearchInput.addEventListener("input", debounce(function () {
     camSearchTerm = camSearchInput.value.trim().toLowerCase();
     renderCamTable();
-  });
+  }, 200));
 
   camDiscardButton.addEventListener("click", function () {
     Object.keys(camPending).forEach((k) => delete camPending[k]);
