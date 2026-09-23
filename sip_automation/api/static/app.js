@@ -1224,6 +1224,10 @@
   }
 
   quarterSelectInput.addEventListener("change", function () {
+    // Apply immediately, not just on Continue - otherwise switching to
+    // Admin Settings right after changing this dropdown (without clicking
+    // Continue first) would show the previous quarter, not this one.
+    setSelectedQuarter(quarterSelectInput.value);
     quarterSelectHint.textContent =
       `Reconciliation will compare ${quarterSelectInput.value} (previous) vs ${nextQuarter(quarterSelectInput.value)} (current) HR rosters.`;
   });
@@ -3558,6 +3562,13 @@
   adminResetButton.addEventListener("click", function () {
     const role = adminRoleSelect.value;
     roleParameterState[role] = { ...DEFAULT_PARAMETERS };
+    // "Reset to Defaults" means the SIP multiplier/weight parameters below,
+    // not the quarter - that's chosen once on the Select Quarter landing
+    // page and shouldn't silently jump to DEFAULT_PARAMETERS.quarter ("Q4")
+    // just because this button was clicked for an unrelated field.
+    if (selectedQuarter) {
+      roleParameterState[role].quarter = selectedQuarter;
+    }
     renderAdminParameters(role);
   });
 
