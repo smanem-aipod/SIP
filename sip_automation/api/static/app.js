@@ -299,6 +299,9 @@
   const exceptionsFilterYtdActualGpDop = document.getElementById("exceptions-filter-ytd_actual_gp_dop_override");
   const exceptionsFilterBpSga = document.getElementById("exceptions-filter-bp_sga");
   const exceptionsFilterYtdSga = document.getElementById("exceptions-filter-ytd_sga");
+  const exceptionsSelectAll = document.getElementById("exceptions-select-all");
+  const exceptionsDeleteSelectedButton = document.getElementById("exceptions-delete-selected-button");
+  const exceptionsDownloadAllButton = document.getElementById("exceptions-download-all-button");
 
   const exceptionsPendingDeletePanel = document.getElementById("exceptions-pending-delete-panel");
   const exceptionsPendingDeleteCount = document.getElementById("exceptions-pending-delete-count");
@@ -610,6 +613,11 @@
   // admin queue up several deletes, review them, and apply them (and
   // recalculate) all at once instead of once per click. Keyed by exception id.
   let exceptionsPendingDeleteIds = new Set();
+  // Checkbox selection for bulk actions (currently just "Delete Selected") -
+  // separate from exceptionsPendingDeleteIds since selection is a transient
+  // UI concept, not a staged change. Only ever contains ids of rows that are
+  // (or were) currently visible under the active search/filters.
+  let exceptionsSelectedIds = new Set();
   // Employee IDs (or upload summaries) changed via Save/Upload since the
   // last successful recalculate - shown in the status banner so nothing
   // gets lost track of if several exceptions are edited before clicking
@@ -2085,17 +2093,37 @@
     if (visibleRows.length === 0) {
       const tr = document.createElement("tr");
       const td = document.createElement("td");
-      td.colSpan = 13;
+      td.colSpan = 14;
       td.textContent = exceptionsSearchTerm || Object.values(exceptionsColumnFilters).some(Boolean)
         ? "No exceptions match your search."
         : "No exceptions have been added yet.";
       tr.appendChild(td);
       tbody.appendChild(tr);
+      // Nothing is visible, so nothing can stay selected either - otherwise
+      // a stale selection from before the last row was staged/filtered out
+      // would silently resurrect itself if the table becomes non-empty again.
+      exceptionsSelectedIds.clear();
+      syncExceptionsSelectAllCheckbox();
+      updateExceptionsDeleteSelectedButton();
       return;
     }
 
     visibleRows.forEach(({ exception, cells }) => {
       const tr = document.createElement("tr");
+
+      const selectTd = document.createElement("td");
+      const selectCb = document.createElement("input");
+      selectCb.type = "checkbox";
+      selectCb.checked = exceptionsSelectedIds.has(exception.id);
+      selectCb.dataset.exceptionId = exception.id;
+      selectCb.addEventListener("change", function () {
+        if (selectCb.checked) exceptionsSelectedIds.add(exception.id);
+        else exceptionsSelectedIds.delete(exception.id);
+        syncExceptionsSelectAllCheckbox();
+        updateExceptionsDeleteSelectedButton();
+      });
+      selectTd.appendChild(selectCb);
+      tr.appendChild(selectTd);
 
       cells.forEach((value) => {
         const td = document.createElement("td");
@@ -2124,7 +2152,126 @@
 
       tbody.appendChild(tr);
     });
+
+    // Selected ids that are no longer visible (filtered out, or just
+    // deleted) shouldn't silently linger in the set - prune before syncing
+    // the header checkbox/button so a later "Delete Selected" only ever
+    // acts on rows the admin can currently see checked.
+    const visibleIds = new Set(visibleRows.map((r) => r.exception.id));
+    Array.from(exceptionsSelectedIds).forEach((id) => {
+      if (!visibleIds.has(id)) exceptionsSelectedIds.delete(id);
+    });
+    syncExceptionsSelectAllCheckbox();
+    updateExceptionsDeleteSelectedButton();
   }
+
+  function syncExceptionsSelectAllCheckbox() {
+    const allCbs = Array.from(exceptionsTable.querySelectorAll("tbody input[type=checkbox]"));
+    if (allCbs.length === 0) {
+      exceptionsSelectAll.checked = false;
+      exceptionsSelectAll.indeterminate = false;
+      return;
+    }
+    const checkedCount = allCbs.filter((c) => c.checked).length;
+    exceptionsSelectAll.indeterminate = checkedCount > 0 && checkedCount < allCbs.length;
+    exceptionsSelectAll.checked = checkedCount === allCbs.length;
+  }
+
+  function updateExceptionsDeleteSelectedButton() {
+    exceptionsDeleteSelectedButton.hidden = exceptionsSelectedIds.size === 0;
+    exceptionsDeleteSelectedButton.textContent = `Delete Selected (${exceptionsSelectedIds.size})`;
+  }
+
+  exceptionsSelectAll.addEventListener("change", function () {
+    const checked = exceptionsSelectAll.checked;
+    exceptionsTable.querySelectorAll("tbody input[type=checkbox]").forEach((cb) => {
+      cb.checked = checked;
+      const id = cb.dataset.exceptionId;
+      if (checked) exceptionsSelectedIds.add(id);
+      else exceptionsSelectedIds.delete(id);
+    });
+    updateExceptionsDeleteSelectedButton();
+  });
+
+  exceptionsDeleteSelectedButton.addEventListener("click", function () {
+    const count = exceptionsSelectedIds.size;
+    if (count === 0) return;
+    const confirmed = window.confirm(
+      `Stage ${count} exception(s) for deletion? Nothing is removed until you click "Apply Deletions".`
+    );
+    if (!confirmed) return;
+
+    exceptionsSelectedIds.forEach((id) => exceptionsPendingDeleteIds.add(id));
+    exceptionsSelectedIds.clear();
+    renderExceptionsTable();
+    renderPendingDeletions();
+  });
+
+  exceptionsDownloadAllButton.addEventListener("click", function () {
+    const columns = [
+      ["employee_id", "Employee ID"],
+      ["employee_name", "Employee Name"],
+      ["category", "Category"],
+      ["bp_fy26_rev", "BP FY26 Rev"],
+      ["bp_fy26_rev_percentage", "BP FY26 Rev %"],
+      ["bp_fy26_rev_direction", "BP FY26 Rev Direction"],
+      ["bp_fy26_gp", "BP FY26 GP"],
+      ["bp_fy26_gp_percentage", "BP FY26 GP %"],
+      ["bp_fy26_gp_direction", "BP FY26 GP Direction"],
+      ["ytd_fy26_rev", "YTD FY26 Rev"],
+      ["ytd_fy26_rev_percentage", "YTD FY26 Rev %"],
+      ["ytd_fy26_rev_direction", "YTD FY26 Rev Direction"],
+      ["ytd_fy26_gp", "YTD FY26 GP"],
+      ["ytd_fy26_gp_percentage", "YTD FY26 GP %"],
+      ["ytd_fy26_gp_direction", "YTD FY26 GP Direction"],
+      ["months_eligible_override", "# Months Eligible (Override)"],
+      ["ytd_actual_revenue_override", "YTD Actual Revenue (Override)"],
+      ["ytd_actual_gp_dop_override", "YTD Actual GP/DOP (Override)"],
+      ["target_sales_rev_direct_override", "Target Sales Rev Direct (Override)"],
+      ["target_gp_dop_direct_override", "Target GP/DOP Direct (Override)"],
+      ["bp_sga", "BP SG&A"],
+      ["ytd_sga", "YTD SG&A"],
+    ];
+
+    // Same "visible/filtered rows only" scope as renderExceptionsTable()'s
+    // own visibleRows - recomputed here so the export always matches
+    // exactly what's currently on screen (search + column filters +
+    // excluding anything staged for deletion).
+    const visibleExceptions = currentExceptions.filter((exception) => {
+      if (exceptionsPendingDeleteIds.has(exception.id)) return false;
+
+      const matchesColumnFilters = EXCEPTIONS_COLUMN_FILTER_FIELDS.every(({ key, type }) => {
+        const selected = exceptionsColumnFilters[key];
+        if (!selected) return true;
+        const rawValue = exception[key];
+        const hasValue = rawValue !== null && rawValue !== undefined && rawValue !== "";
+        if (type === "has") return selected === "has" ? hasValue : !hasValue;
+        return (hasValue ? String(rawValue) : "") === selected;
+      });
+      if (!matchesColumnFilters) return false;
+
+      if (!exceptionsSearchTerm) return true;
+      return columns.some(([key]) =>
+        String(exception[key] || "").toLowerCase().includes(exceptionsSearchTerm)
+      );
+    });
+
+    const lines = [columns.map(([, label]) => csvEscape(label)).join(",")];
+    visibleExceptions.forEach((exception) => {
+      lines.push(columns.map(([key]) => csvEscape(exception[key])).join(","));
+    });
+    const csvContent = lines.join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const timestamp = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `precompute_exceptions_${timestamp}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  });
 
   function openExceptionModal(exception) {
     exceptionFormError.hidden = true;

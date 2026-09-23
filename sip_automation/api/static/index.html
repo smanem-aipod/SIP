@@ -405,12 +405,15 @@
                placeholder="Filter by employee name, ID, category, or any value..." />
       </label>
       <button type="button" id="exceptions-clear-filters-button" class="btn btn-secondary">Clear Filters</button>
+      <button type="button" id="exceptions-delete-selected-button" class="btn btn-delete" hidden>Delete Selected</button>
+      <button type="button" id="exceptions-download-all-button" class="btn btn-secondary">Download All</button>
     </div>
 
     <div class="table-wrapper">
       <table id="exceptions-table">
         <thead>
           <tr>
+            <th><input type="checkbox" id="exceptions-select-all" title="Select all visible" /></th>
             <th>
               <div class="th-label">Employee ID</div>
               <select id="exceptions-filter-employee_id" class="th-filter"><option value="">All</option></select>
