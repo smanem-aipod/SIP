@@ -454,6 +454,7 @@ class CanonicalPipeline:
             "material",
             "seller_id",
             "employee_id",
+            "employee_id_only_for_shared",
         ]:
             if column_name in result.columns:
                 result[column_name] = (
