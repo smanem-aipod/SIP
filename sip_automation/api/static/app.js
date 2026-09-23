@@ -419,6 +419,7 @@
   const uploadForm = document.getElementById("upload-form");
   const uploadError = document.getElementById("upload-error");
   const runButton = document.getElementById("run-button");
+  const uploadBackButton = document.getElementById("upload-back-button");
 
   const progressSection = document.getElementById("progress-section");
   const progressFill = document.getElementById("progress-fill");
@@ -509,6 +510,7 @@
   const hrThQ1Value = document.getElementById("hr-th-q1-value");
   const hrThQ2Value = document.getElementById("hr-th-q2-value");
   const hrCompareButton = document.getElementById("hr-compare-button");
+  const hrBackButton = document.getElementById("hr-back-button");
   const hrReconError = document.getElementById("hr-recon-error");
   const hrReconUnmatchedWarning = document.getElementById("hr-recon-unmatched-warning");
   const hrReconHighChangeWarning = document.getElementById("hr-recon-high-change-warning");
@@ -807,6 +809,15 @@
   }
 
   // ---- Pipeline orchestration ----
+  uploadBackButton.addEventListener("click", function () {
+    // Return to HR Reconciliation to review/redo exclusions or the
+    // quarter's file pair - file selections already made on this Upload
+    // form are left as-is (no run has been created yet at this point, so
+    // there's nothing to lose by going back and forward again).
+    sessionStorage.removeItem(HR_DONE_KEY);
+    showHrSection();
+  });
+
   uploadForm.addEventListener("submit", async function (event) {
     event.preventDefault();
     uploadError.hidden = true;
@@ -1253,6 +1264,10 @@
   quarterSelectContinueButton.addEventListener("click", function () {
     setSelectedQuarter(quarterSelectInput.value);
     showHrSection();
+  });
+
+  hrBackButton.addEventListener("click", function () {
+    showQuarterSelectionSection();
   });
 
   // ---- HR Reconciliation ----
