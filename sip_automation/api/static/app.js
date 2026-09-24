@@ -537,6 +537,17 @@
   const quarterSelectHint = document.getElementById("quarter-select-hint");
   const quarterSelectContinueButton = document.getElementById("quarter-select-continue-button");
 
+  // ---- Precompute Exceptions review page DOM refs (shown after HR
+  // Reconciliation, before Upload, only when old exceptions exist) ----
+  const precomputeReviewSection = document.getElementById("precompute-review-section");
+  const precomputeReviewSubtitle = document.getElementById("precompute-review-subtitle");
+  const precomputeReviewError = document.getElementById("precompute-review-error");
+  const precomputeReviewTable = document.getElementById("precompute-review-table");
+  const precomputeReviewSelectAll = document.getElementById("precompute-review-select-all");
+  const precomputeReviewDeleteSelectedButton = document.getElementById("precompute-review-delete-selected-button");
+  const precomputeReviewBackButton = document.getElementById("precompute-review-back-button");
+  const precomputeReviewContinueButton = document.getElementById("precompute-review-continue-button");
+
 
   // ---- State ----
   let currentRunId = null;
@@ -549,6 +560,13 @@
   // Per-column dropdown filters: { columnName: "selected value" }. An empty
   // string (or missing key) means "All" - no filter applied for that column.
   let columnFilters = {};
+
+  // Employee ID (uppercased) -> array of category strings, one per
+  // Precompute Exception row for that employee. Powers the red/green
+  // indicator dot in the main Results table and the row detail modal (see
+  // loadExceptionIndicators/renderTable/openRowModal) - refreshed every
+  // time results load, same "no-store" freshness as the rest of Results.
+  let exceptionCategoriesByEmployeeId = new Map();
 
   // ---- HR Reconciliation state ----
   let hrAllChanges = [];        // full diff from /compare
@@ -625,6 +643,13 @@
   // lists changes in the order they were made.
   let exceptionsPendingRecalcNotes = new Set();
 
+  // Precompute Exceptions loaded into the standalone review page (shown
+  // after HR Reconciliation, before Upload) - separate from
+  // currentExceptions/exceptionsSelectedIds, which belong to the Admin
+  // Settings > Precompute Exceptions tab.
+  let precomputeReviewExceptions = [];
+  let precomputeReviewSelectedIds = new Set();
+
   // ---- Section visibility ----
   // Single source of truth for "only one main section visible at a time".
   // Every show*Section() function below calls this first, then unhides
@@ -637,6 +662,7 @@
     // Main navigable sections
     quarterSelectionSection.hidden = true;
     hrReconciliationSection.hidden = true;
+    precomputeReviewSection.hidden = true;
     hrExclusionsPanel.hidden = true;
     adminPasswordSection.hidden = true;
     adminSection.hidden = true;
@@ -989,6 +1015,8 @@
       cache: "no-store",
     });
 
+    await loadExceptionIndicators();
+
     if (!response.ok) {
       const detail = await readErrorDetail(response);
       resultsSummary.textContent = detail;
@@ -1016,6 +1044,48 @@
     renderTableHeader();
     renderTable();
   }
+
+  // Builds exceptionCategoriesByEmployeeId from the current Precompute
+  // Exceptions list, for the red/green indicator dot in the main Results
+  // table and row detail modal. Best-effort - if the fetch fails, the
+  // indicator just falls back to green (no known exceptions) rather than
+  // blocking Results from loading.
+  async function loadExceptionIndicators() {
+    exceptionCategoriesByEmployeeId = new Map();
+    try {
+      const response = await fetch(EXCEPTIONS_API_BASE, { cache: "no-store" });
+      if (!response.ok) return;
+      const data = await response.json();
+      (data.exceptions || []).forEach((exception) => {
+        if (!exception.employee_id) return;
+        const key = String(exception.employee_id).toUpperCase();
+        const categories = exceptionCategoriesByEmployeeId.get(key) || [];
+        categories.push(exception.category || "Exception");
+        exceptionCategoriesByEmployeeId.set(key, categories);
+      });
+    } catch (_err) {
+      // Non-fatal - see comment above.
+    }
+  }
+
+  function getExceptionCategoriesForRow(row) {
+    const employeeId = row["Employee ID"];
+    if (!employeeId) return [];
+    return exceptionCategoriesByEmployeeId.get(String(employeeId).toUpperCase()) || [];
+  }
+
+  // Builds the red/green indicator dot (and its tooltip) shared by the main
+  // Results table and the row detail modal.
+  function buildExceptionIndicatorDot(row) {
+    const categories = getExceptionCategoriesForRow(row);
+    const dot = document.createElement("span");
+    dot.className = categories.length > 0 ? "exception-dot exception-dot-red" : "exception-dot exception-dot-green";
+    dot.title = categories.length > 0
+      ? `Precompute Exception(s): ${categories.join(", ")}`
+      : "No Precompute Exception";
+    return dot;
+  }
+
 
   // Display-only formatting: cap decimals at 2 places, and mask sensitive
   // salary columns. Backend/raw data is untouched — this only affects what's
@@ -1061,6 +1131,11 @@
     const thead = resultsTable.querySelector("thead");
     thead.innerHTML = "";
     const headerRow = document.createElement("tr");
+
+    const exceptionTh = document.createElement("th");
+    exceptionTh.textContent = "Exception";
+    exceptionTh.title = "Red = has a Precompute Exception applied, green = none";
+    headerRow.appendChild(exceptionTh);
 
     curatedColumns.forEach((column) => {
       const th = document.createElement("th");
@@ -1151,6 +1226,10 @@
     pageRows.forEach((row) => {
       const tr = document.createElement("tr");
 
+      const exceptionTd = document.createElement("td");
+      exceptionTd.appendChild(buildExceptionIndicatorDot(row));
+      tr.appendChild(exceptionTd);
+
       curatedColumns.forEach((column) => {
         const td = document.createElement("td");
         td.textContent = formatValue(row[column], column);
@@ -1186,6 +1265,21 @@
 
   function openRowModal(row) {
     modalBody.innerHTML = "";
+
+    // Same red/green indicator dot as the main table, shown first for
+    // visibility - its title tooltip carries the exception category text.
+    const exceptionDt = document.createElement("dt");
+    exceptionDt.textContent = "Exception";
+    const exceptionDd = document.createElement("dd");
+    exceptionDd.appendChild(buildExceptionIndicatorDot(row));
+    const categories = getExceptionCategoriesForRow(row);
+    if (categories.length > 0) {
+      const label = document.createElement("span");
+      label.textContent = ` ${categories.join(", ")}`;
+      exceptionDd.appendChild(label);
+    }
+    modalBody.appendChild(exceptionDt);
+    modalBody.appendChild(exceptionDd);
 
     // Render as two side-by-side label:value pairs per visual row instead
     // of one long single-column list, so ~60 fields take ~30 rows of
@@ -1602,8 +1696,7 @@
       });
       if (!resp.ok) throw new Error(await readErrorDetail(resp));
       sessionStorage.setItem(HR_DONE_KEY, "true");
-      hideAllMainSections();
-      uploadSection.hidden = false;
+      await proceedPastHrReconciliation();
     } catch (err) {
       hrReconError.textContent = `Failed to save exclusions: ${err.message || err}`;
       hrReconError.hidden = false;
@@ -1629,8 +1722,7 @@
       hrSkipButton.disabled = false;
     }
     sessionStorage.setItem(HR_DONE_KEY, "true");
-    hideAllMainSections();
-    uploadSection.hidden = false;
+    await proceedPastHrReconciliation();
   });
 
   // ---- Login / logout (client-side only, see SHARED_PASSWORD above) ----
@@ -1651,8 +1743,7 @@
     const restored = await restorePersistedRunIfAny();
     if (!restored) {
       if (sessionStorage.getItem(HR_DONE_KEY) === "true") {
-        hideAllMainSections();
-        uploadSection.hidden = false;
+        await proceedPastHrReconciliation();
       } else {
         showQuarterSelectionSection();
       }
@@ -1793,6 +1884,180 @@
       uploadSection.hidden = false;
     }
   }
+
+  // ---- Precompute Exceptions review gate (after HR Reconciliation, before
+  // Upload) ----
+  // If Precompute Exceptions already exist when the user finishes HR
+  // Reconciliation, they must explicitly choose to keep or delete them on a
+  // dedicated standalone page (see showPrecomputeReviewSection below) before
+  // continuing - a genuinely new run with none to review skips straight to
+  // Upload. Called from every place that currently transitions from HR
+  // Reconciliation to Upload.
+  async function proceedPastHrReconciliation() {
+    let exceptions = [];
+    try {
+      // no-store: must reflect the latest add/delete, not a cached list.
+      const resp = await fetch(EXCEPTIONS_API_BASE, { cache: "no-store" });
+      if (resp.ok) {
+        const data = await resp.json();
+        exceptions = data.exceptions || [];
+      }
+    } catch (_err) {
+      // If the check fails, don't block the run on it - fall through to Upload.
+    }
+
+    if (exceptions.length > 0) {
+      showPrecomputeReviewSection(exceptions);
+    } else {
+      hideAllMainSections();
+      uploadSection.hidden = false;
+    }
+  }
+
+  function showPrecomputeReviewSection(exceptions) {
+    precomputeReviewExceptions = exceptions;
+    precomputeReviewSelectedIds = new Set();
+    precomputeReviewError.hidden = true;
+    hideAllMainSections();
+    precomputeReviewSubtitle.textContent =
+      `${exceptions.length} saved from a previous run. Check any to remove, then Continue to keep the rest.`;
+    renderPrecomputeReviewTable();
+    precomputeReviewSection.hidden = false;
+  }
+
+  // Condenses whichever override/amount fields are populated on this
+  // exception into one readable string, so this review page can stay a
+  // lean 5-column "keep or delete" indicator instead of duplicating the
+  // full 13-column Admin Settings grid.
+  function formatPrecomputeReviewDetails(exception) {
+    const parts = [
+      formatExceptionOverrideCell(exception, "months_eligible_override") &&
+        `Months Eligible: ${exception.months_eligible_override}`,
+      formatExceptionOverrideCell(exception, "ytd_actual_revenue_override") &&
+        `YTD Actual Rev: ${exception.ytd_actual_revenue_override}`,
+      formatExceptionOverrideCell(exception, "ytd_actual_gp_dop_override") &&
+        `YTD Actual GP/DOP: ${exception.ytd_actual_gp_dop_override}`,
+      formatExceptionAmountCell(exception, "bp_fy26_rev") &&
+        `BP Rev: ${formatExceptionAmountCell(exception, "bp_fy26_rev")}`,
+      formatExceptionAmountCell(exception, "bp_fy26_gp") &&
+        `BP GP: ${formatExceptionAmountCell(exception, "bp_fy26_gp")}`,
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(" | ") : "\u2014";
+  }
+
+  function renderPrecomputeReviewTable() {
+    const tbody = precomputeReviewTable.querySelector("tbody");
+    tbody.innerHTML = "";
+
+    if (precomputeReviewExceptions.length === 0) {
+      precomputeReviewSelectedIds.clear();
+      syncPrecomputeReviewSelectAll();
+      updatePrecomputeReviewDeleteButton();
+      const row = document.createElement("tr");
+      const cell = document.createElement("td");
+      cell.colSpan = 5;
+      cell.textContent = "No precompute exceptions remain for this run.";
+      row.appendChild(cell);
+      tbody.appendChild(row);
+      return;
+    }
+
+    precomputeReviewExceptions.forEach((exception) => {
+      const row = document.createElement("tr");
+
+      const checkboxCell = document.createElement("td");
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = precomputeReviewSelectedIds.has(exception.id);
+      checkbox.addEventListener("change", function () {
+        if (checkbox.checked) precomputeReviewSelectedIds.add(exception.id);
+        else precomputeReviewSelectedIds.delete(exception.id);
+        syncPrecomputeReviewSelectAll();
+        updatePrecomputeReviewDeleteButton();
+      });
+      checkboxCell.appendChild(checkbox);
+      row.appendChild(checkboxCell);
+
+      [
+        exception.employee_id,
+        exception.employee_name || "",
+        exception.category || "",
+        formatPrecomputeReviewDetails(exception),
+      ].forEach((text) => {
+        const cell = document.createElement("td");
+        cell.textContent = text;
+        row.appendChild(cell);
+      });
+
+      tbody.appendChild(row);
+    });
+
+    syncPrecomputeReviewSelectAll();
+    updatePrecomputeReviewDeleteButton();
+  }
+
+  function syncPrecomputeReviewSelectAll() {
+    const total = precomputeReviewExceptions.length;
+    const selected = precomputeReviewExceptions.filter((e) => precomputeReviewSelectedIds.has(e.id)).length;
+    precomputeReviewSelectAll.checked = total > 0 && selected === total;
+    precomputeReviewSelectAll.indeterminate = selected > 0 && selected < total;
+  }
+
+  function updatePrecomputeReviewDeleteButton() {
+    precomputeReviewDeleteSelectedButton.hidden = precomputeReviewSelectedIds.size === 0;
+  }
+
+  precomputeReviewSelectAll.addEventListener("change", function () {
+    if (precomputeReviewSelectAll.checked) {
+      precomputeReviewExceptions.forEach((e) => precomputeReviewSelectedIds.add(e.id));
+    } else {
+      precomputeReviewSelectedIds.clear();
+    }
+    renderPrecomputeReviewTable();
+  });
+
+  precomputeReviewDeleteSelectedButton.addEventListener("click", async function () {
+    const idsToDelete = Array.from(precomputeReviewSelectedIds);
+    if (idsToDelete.length === 0) return;
+
+    const confirmed = window.confirm(
+      `Delete ${idsToDelete.length} precompute exception(s)? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    precomputeReviewError.hidden = true;
+    precomputeReviewDeleteSelectedButton.disabled = true;
+    try {
+      for (const id of idsToDelete) {
+        const response = await fetch(
+          `${EXCEPTIONS_API_BASE}/${id}?changed_by=${encodeURIComponent(currentUsername())}`,
+          { method: "DELETE" }
+        );
+        if (!response.ok && response.status !== 204) {
+          throw new Error(await readErrorDetail(response));
+        }
+      }
+      // No recalculate here - there is no run yet at this point in the flow
+      // (this page sits between HR Reconciliation and Upload).
+      precomputeReviewExceptions = precomputeReviewExceptions.filter((e) => !idsToDelete.includes(e.id));
+      precomputeReviewSelectedIds.clear();
+      renderPrecomputeReviewTable();
+    } catch (err) {
+      precomputeReviewError.textContent = err.message || String(err);
+      precomputeReviewError.hidden = false;
+    } finally {
+      precomputeReviewDeleteSelectedButton.disabled = false;
+    }
+  });
+
+  precomputeReviewBackButton.addEventListener("click", function () {
+    showHrSection();
+  });
+
+  precomputeReviewContinueButton.addEventListener("click", function () {
+    hideAllMainSections();
+    uploadSection.hidden = false;
+  });
 
   // ---- Admin tabs: Parameters / Precompute Exceptions / Data Corrections / CAM Allocations ----
   function showAdminTab(tab) {

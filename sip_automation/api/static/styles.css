@@ -951,6 +951,21 @@ tbody tr:hover {
 .hr-badge-leaver { background: #fee2e2; color: #991b1b; }
 .hr-badge-change { background: #fef3c7; color: #92400e; }
 
+/* Small red/green dot in the main Results table (and the row detail modal)
+   showing at a glance whether an employee has a Precompute Exception
+   applied - red = has one or more exceptions, green = none. Title
+   attribute carries the category/reason text as a tooltip. */
+.exception-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.exception-dot-red { background: #dc2626; }
+.exception-dot-green { background: #16a34a; }
+
 .hr-exclusion-chip {
   display: inline-flex;
   align-items: center;

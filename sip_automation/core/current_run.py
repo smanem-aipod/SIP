@@ -19,14 +19,13 @@ import yaml
 
 # current_run.py is located at:
 #
-# project_root/src/sip_automation/core/current_run.py
+# project_root/sip_automation/core/current_run.py
 #
 # parents[0] = core
 # parents[1] = sip_automation
-# parents[2] = src
-# parents[3] = project root
+# parents[2] = project root
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_CURRENT_RUN_PATH = (
     PROJECT_ROOT / "data" / "current_run.yaml"

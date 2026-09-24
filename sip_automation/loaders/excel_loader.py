@@ -152,7 +152,15 @@ class ExcelLoader(BaseLoader):
         except SourceTableNotFoundError:
             raise
 
-        except (ValueError, ImportError, OSError) as exc:
+        # Broad on purpose: a corrupted or non-Excel file (e.g. a text
+        # file renamed to .xlsx) can fail inside whichever engine pandas
+        # picked (calamine, openpyxl, xlrd, pyxlsb) with an
+        # engine-specific exception type that isn't a ValueError/
+        # ImportError/OSError - e.g. python_calamine.CalamineError. Any
+        # failure here means "this isn't readable as Excel", so it's
+        # always a LoaderError (surfaced as a friendly 422), never a
+        # bare 500.
+        except Exception as exc:
             logger.exception(
                 "excel_load_failed",
                 run_id=str(context.run_id),
@@ -300,7 +308,10 @@ class ExcelLoader(BaseLoader):
             ) as workbook:
                 available_sheets = workbook.sheet_names
 
-        except (ValueError, ImportError, OSError) as exc:
+        # Broad on purpose - see the matching comment above; any failure
+        # to open/inspect the workbook (regardless of engine-specific
+        # exception type) means this isn't a readable Excel file.
+        except Exception as exc:
             raise LoaderError(
                 f"Unable to inspect workbook sheets: "
                 f"{workbook_path}"

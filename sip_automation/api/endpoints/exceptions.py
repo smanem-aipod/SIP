@@ -74,10 +74,21 @@ def _clean_numeric_text(text: str) -> str | None:
     text = text.replace(",", "").replace("$", "").replace("%", "")
 
     # Some locales use "." as the thousands separator (e.g. "19.508.411").
-    # A genuine decimal value only ever has one ".", so only strip dots
-    # when there's more than one.
+    # Only collapse repeated dots when every group after the first is
+    # exactly 3 digits - the real shape of thousands grouping. A
+    # genuinely malformed number like "1.234.5" does NOT match that
+    # shape, so it's left alone here and allowed to fail float parsing
+    # downstream (a clear per-row error) instead of being silently
+    # misinterpreted as 12345.
     if text.count(".") > 1:
-        text = text.replace(".", "")
+        groups = text.split(".")
+        looks_like_thousands = (
+            all(group.isdigit() for group in groups)
+            and 1 <= len(groups[0]) <= 3
+            and all(len(group) == 3 for group in groups[1:])
+        )
+        if looks_like_thousands:
+            text = text.replace(".", "")
 
     if not text:
         return None

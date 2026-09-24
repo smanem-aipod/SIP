@@ -238,9 +238,45 @@
     </div>
   </section>
 
+  <!-- Precompute Exceptions review: shown after HR Reconciliation, before
+       Upload, only when Precompute Exceptions already exist from a
+       previous run. A simple keep-or-delete decision point - not the full
+       Admin Settings tab (see app.js: showPrecomputeReviewSection). -->
+  <section id="precompute-review-section" class="card" hidden>
+    <h2>Precompute Exceptions</h2>
+    <p id="precompute-review-subtitle" class="subtitle"></p>
+
+    <div id="precompute-review-error" class="banner banner-error" hidden></div>
+
+    <div class="results-toolbar" style="margin-bottom: 16px;">
+      <button type="button" id="precompute-review-delete-selected-button" class="btn btn-delete" hidden>Delete Selected</button>
+    </div>
+
+    <div class="table-wrapper">
+      <table id="precompute-review-table">
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="precompute-review-select-all" title="Select all" /></th>
+            <th>Employee ID</th>
+            <th>Employee Name</th>
+            <th>Category</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div style="display: flex; gap: 12px; margin-top: 20px;">
+      <button type="button" id="precompute-review-back-button" class="btn btn-secondary">&larr; Back</button>
+      <button type="button" id="precompute-review-continue-button" class="btn btn-primary">Continue</button>
+    </div>
+  </section>
+
   <!-- Upload form -->
   <section id="upload-section" class="card">
     <h2>1. Upload files</h2>
+
 
     <div id="upload-error" class="banner banner-error" hidden></div>
 

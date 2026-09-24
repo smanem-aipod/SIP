@@ -26,6 +26,7 @@ from sip_automation.core.exceptions import (
     ColumnMappingError,
     DataTypeConversionError,
     DataValidationError,
+    LoaderError,
     PipelineExecutionError,
 )
 
@@ -169,6 +170,7 @@ def create_run(
                 ColumnMappingError,
                 DataTypeConversionError,
                 DataValidationError,
+                LoaderError,
                 PipelineExecutionError,
             ),
         ):

@@ -60,14 +60,13 @@ from sip_automation.core.exceptions import (
 
 # precompute_exceptions.py is located at:
 #
-# project_root/src/sip_automation/core/precompute_exceptions.py
+# project_root/sip_automation/core/precompute_exceptions.py
 #
 # parents[0] = core
 # parents[1] = sip_automation
-# parents[2] = src
-# parents[3] = project root
+# parents[2] = project root
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_EXCEPTIONS_PATH = (
     PROJECT_ROOT / "data" / "precompute_exceptions.yaml"
@@ -310,6 +309,49 @@ def _validate_amount(
         ) from exc
 
 
+def _normalize_category(category: Any) -> str:
+    """
+    Case/whitespace-insensitive key for "same category" comparisons, so
+    "Manual Adjustment" and " manual adjustment " are treated as the
+    same category when checking for duplicates.
+    """
+
+    return str(category or "").strip().lower()
+
+
+def _find_duplicate_key(
+    rows: list[dict[str, Any]],
+    employee_id: str,
+    category: Any,
+    *,
+    exclude_id: str | None = None,
+) -> dict[str, Any] | None:
+    """
+    Return the first existing row that shares this employee_id + category
+    combination (excluding `exclude_id`, so an update can match itself),
+    or None if there's no conflict.
+
+    Downstream aggregation (see aggregate_precompute_exceptions) sums
+    amount columns per employee_id, so two exceptions with the same
+    employee_id + category would silently double-count that employee's
+    adjustment - callers use this to reject that before it happens.
+    """
+
+    target_category = _normalize_category(category)
+
+    for row in rows:
+        if exclude_id is not None and row.get("id") == exclude_id:
+            continue
+
+        if str(row.get("employee_id") or "").strip().upper() != employee_id:
+            continue
+
+        if _normalize_category(row.get("category")) == target_category:
+            return row
+
+    return None
+
+
 def _validate_amount_group(
     payload: dict[str, Any],
 ) -> dict[str, float | str | None]:
@@ -431,6 +473,23 @@ class PrecomputeExceptionsStore:
                 "employee_id is required."
             )
 
+        rows = self._read_raw()
+
+        duplicate = _find_duplicate_key(
+            rows,
+            employee_id,
+            payload.get("category"),
+        )
+        if duplicate is not None:
+            raise PrecomputeExceptionValidationError(
+                f"An exception for employee_id={employee_id!r} and "
+                f"category={(payload.get('category') or '(none)')!r} "
+                f"already exists (id={duplicate.get('id')}). Edit that "
+                "exception instead of creating a duplicate - having two "
+                "exceptions for the same employee and category would "
+                "double-count the adjustment."
+            )
+
         amount_group = _validate_amount_group(payload)
         override_group = _validate_override_group(payload)
         sga_group = _validate_sga_group(payload)
@@ -454,7 +513,6 @@ class PrecomputeExceptionsStore:
             **sga_group,
         )
 
-        rows = self._read_raw()
         rows.append(exception.to_dict())
         self._write_raw(rows)
 
@@ -497,6 +555,28 @@ class PrecomputeExceptionsStore:
         # this update), so a partial update can't leave an amount without
         # a direction.
         merged_for_validation = {**existing, **payload}
+
+        final_employee_id = str(
+            merged_for_validation.get("employee_id") or ""
+        ).strip().upper()
+
+        duplicate = _find_duplicate_key(
+            rows,
+            final_employee_id,
+            merged_for_validation.get("category"),
+            exclude_id=exception_id,
+        )
+        if duplicate is not None:
+            raise PrecomputeExceptionValidationError(
+                f"An exception for employee_id={final_employee_id!r} and "
+                "category="
+                f"{(merged_for_validation.get('category') or '(none)')!r} "
+                f"already exists (id={duplicate.get('id')}). Edit that "
+                "exception instead of creating a duplicate - having two "
+                "exceptions for the same employee and category would "
+                "double-count the adjustment."
+            )
+
         validated_amount_group = _validate_amount_group(
             merged_for_validation
         )
@@ -617,22 +697,29 @@ class PrecomputeExceptionsStore:
         reporting). Only rows that pass validation are kept; invalid rows
         are skipped and returned as errors (partial success).
 
-        Unlike a full replace, this is an upsert keyed by employee_id:
-        existing exceptions for employee IDs NOT present in this upload
+        Unlike a full replace, this is an upsert keyed by
+        (employee_id, category): existing exceptions for a
+        employee_id + category combination NOT present in this upload
         (whether added manually or by a previous upload) are left
-        untouched. For any employee ID that DOES appear in this upload, ALL
-        of that employee's existing rows are removed first, then replaced
-        by the new row(s) from the file - the upload is treated as the new
-        source of truth for those specific employees. This avoids silently
-        double-counting an employee's adjustment amounts, since downstream
-        aggregation sums amount columns per employee_id (see
-        aggregate_precompute_exceptions below).
+        untouched. Only the specific employee_id + category rows that
+        DO appear in this upload are replaced - other categories for
+        that same employee are never touched. This avoids both silently
+        double-counting an employee's adjustment amounts (since
+        downstream aggregation sums amount columns per employee_id, see
+        aggregate_precompute_exceptions below) AND silently wiping out
+        an employee's unrelated exceptions just because one category was
+        re-uploaded.
+
+        If the same employee_id + category combination appears more than
+        once within this upload, only the last occurrence is kept and the
+        earlier one(s) are reported back as errors (superseded), matching
+        the "last row wins" convention used elsewhere in this app.
 
         If no row is valid, the file on disk is NOT modified - the caller
         should treat an empty `saved` list as "reject the whole upload".
         """
 
-        saved: list[PrecomputeException] = []
+        saved_with_rows: list[tuple[int, PrecomputeException]] = []
         errors: list[tuple[int, str | None, str]] = []
         now = _now()
 
@@ -662,35 +749,83 @@ class PrecomputeExceptionsStore:
                 )
                 continue
 
-            saved.append(
-                PrecomputeException(
-                    id=str(uuid.uuid4()),
-                    employee_id=employee_id,
-                    employee_name=(
-                        payload.get("employee_name") or None
+            saved_with_rows.append(
+                (
+                    row_number,
+                    PrecomputeException(
+                        id=str(uuid.uuid4()),
+                        employee_id=employee_id,
+                        employee_name=(
+                            payload.get("employee_name") or None
+                        ),
+                        category=(
+                            payload.get("category") or None
+                        ),
+                        created_at=now,
+                        updated_at=now,
+                        updated_by=changed_by,
+                        **amount_group,
+                        **override_group,
+                        **sga_group,
                     ),
-                    category=(
-                        payload.get("category") or None
-                    ),
-                    created_at=now,
-                    updated_at=now,
-                    updated_by=changed_by,
-                    **amount_group,
-                    **override_group,
-                    **sga_group,
                 )
             )
 
+        # Multiple rows in this same upload for the same employee_id +
+        # category would otherwise all get written and later summed by
+        # the aggregation step below - keep only the last one per key,
+        # and report the earlier ones as superseded so admins can see
+        # this happened instead of it silently disappearing.
+        last_position_by_key: dict[tuple[str, str], int] = {}
+        for position, (_row_number, exception) in enumerate(
+            saved_with_rows
+        ):
+            key = (
+                exception.employee_id,
+                _normalize_category(exception.category),
+            )
+            last_position_by_key[key] = position
+
+        saved: list[PrecomputeException] = []
+        for position, (row_number, exception) in enumerate(
+            saved_with_rows
+        ):
+            key = (
+                exception.employee_id,
+                _normalize_category(exception.category),
+            )
+            if last_position_by_key[key] != position:
+                errors.append(
+                    (
+                        row_number,
+                        exception.employee_id,
+                        (
+                            "Superseded by a later row in this file with "
+                            "the same employee_id and category "
+                            f"({exception.category or '(none)'!r})."
+                        ),
+                    )
+                )
+                continue
+            saved.append(exception)
+
         if saved:
-            uploaded_employee_ids = {
-                exception.employee_id for exception in saved
+            uploaded_keys = {
+                (
+                    exception.employee_id,
+                    _normalize_category(exception.category),
+                )
+                for exception in saved
             }
             existing_rows = self._read_raw()
             kept_rows = [
                 row
                 for row in existing_rows
-                if str(row.get("employee_id") or "").strip().upper()
-                not in uploaded_employee_ids
+                if (
+                    str(row.get("employee_id") or "").strip().upper(),
+                    _normalize_category(row.get("category")),
+                )
+                not in uploaded_keys
             ]
             self._write_raw(
                 kept_rows
