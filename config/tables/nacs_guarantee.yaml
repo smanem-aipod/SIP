@@ -189,7 +189,7 @@ raw_to_canonical:
 # =========================================================
 
 parameters:
-  quarter: "Q2"
+  quarter: "Q3"
 
   annual_month_count: 12
   guarantee_duration_days: 365
@@ -464,13 +464,25 @@ columns:
     nullable: true
     max_length: 50
 
-  calculated_sip_payroll_currency:
+  calculated_sip_usd_q1:
     type: decimal
     nullable: true
     precision: 20
     scale: 8
 
-  calculated_sip_usd:
+  calculated_sip_usd_q2:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  calculated_sip_usd_q3:
+    type: decimal
+    nullable: true
+    precision: 20
+    scale: 8
+
+  calculated_sip_usd_q4:
     type: decimal
     nullable: true
     precision: 20
@@ -774,20 +786,46 @@ derived_columns:
     eligible_value: "Eligible for Gtee SIP"
     crossed_value: "Crossed Gtee SIP"
 
-  calculated_sip_payroll_currency:
-    enabled: true
-    stage: before_enrichment
-    operation: copy
-
-    input: fy26_q2
-
-  calculated_sip_usd:
+  calculated_sip_usd_q1:
     enabled: true
     stage: after_enrichment
     operation: safe_divide
 
     inputs:
-      numerator: calculated_sip_payroll_currency
+      numerator: fy26_q1
+      denominator: fx_rate_value
+
+    when_denominator_zero: null
+
+  calculated_sip_usd_q2:
+    enabled: true
+    stage: after_enrichment
+    operation: safe_divide
+
+    inputs:
+      numerator: fy26_q2
+      denominator: fx_rate_value
+
+    when_denominator_zero: null
+
+  calculated_sip_usd_q3:
+    enabled: true
+    stage: after_enrichment
+    operation: safe_divide
+
+    inputs:
+      numerator: fy26_q3
+      denominator: fx_rate_value
+
+    when_denominator_zero: null
+
+  calculated_sip_usd_q4:
+    enabled: true
+    stage: after_enrichment
+    operation: safe_divide
+
+    inputs:
+      numerator: fy26_q4
       denominator: fx_rate_value
 
     when_denominator_zero: null
@@ -876,8 +914,10 @@ publish:
     - fy26_total
     - carry_forward_payable_fy27
     - guarantee_eligibility_status
-    - calculated_sip_payroll_currency
-    - calculated_sip_usd
+    - calculated_sip_usd_q1
+    - calculated_sip_usd_q2
+    - calculated_sip_usd_q3
+    - calculated_sip_usd_q4
     - guarantee_sip_ending_date
     - final_guarantee_eligibility_fy26_months
     - total_calculated_sip_payroll_currency

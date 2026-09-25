@@ -7,6 +7,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from sip_automation.calculation_engine.operations.conditional import (
+    CaseWhenOperation,
+    IfElseOperation,
+)
 from sip_automation.core.exceptions import TransformationError
 from sip_automation.core.logging import get_logger
 from sip_automation.core.run_context import RunContext
@@ -66,6 +70,8 @@ class TransformationEngine:
             "copy": self._copy,
             "add_days": self._add_days,
             "prorate": self._prorate,
+            "if_else": self._if_else,
+            "case_when": self._case_when,
             "nacs_fy25_eligibility_months": (
                 self._nacs_fy25_eligibility_months
             ),
@@ -504,6 +510,37 @@ class TransformationEngine:
 
         return result
 
+    def _if_else(
+        self,
+        dataframe: pd.DataFrame,
+        definition: dict[str, Any],
+        context: RunContext,
+    ) -> pd.DataFrame:
+        values = IfElseOperation().execute(
+            dataframe,
+            definition,
+            context,
+        )
+
+        result = dataframe.copy()
+        result[definition["output"]] = values
+        return result
+
+    def _case_when(
+        self,
+        dataframe: pd.DataFrame,
+        definition: dict[str, Any],
+        context: RunContext,
+    ) -> pd.DataFrame:
+        values = CaseWhenOperation().execute(
+            dataframe,
+            definition,
+            context,
+        )
+
+        result = dataframe.copy()
+        result[definition["output"]] = values
+        return result
 
     def _add_days(
         self,

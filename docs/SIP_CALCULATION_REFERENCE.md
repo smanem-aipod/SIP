@@ -32,7 +32,7 @@ Source of truth for this doc:
 | `bdm` (canonical, pre-calculated) | `revenue`, `gp` | BDM actuals (no SIP # — reads pre-built numbers) | BDM's revenue/GP already has allocation/sharing logic applied upstream, so the engine just sums it as-is |
 | `bdm` | `bdm_id` | Join key | Matches `employee.employee_id` → `bdm.bdm_id` |
 | `fx_rates` | `currency_code`, `rate_value` | `payroll_fx_rate` lookup | Converts every payroll-currency ($ target/salary) figure into USD and vice versa |
-| `nacs_guarantee` | `calculated_sip_usd` | `guarantee_sip_q2` (SIP 56/57) | Some employees have a **guaranteed minimum SIP** (NACS = new-account/contract guarantee) regardless of performance |
+| `nacs_guarantee` | `calculated_sip_usd_q1`/`_q2`/`_q3`/`_q4` (one per quarter, each `fy26_qN ÷ fx_rate_value`) | `guarantee_sip_q2` (SIP 56/57) — picks the column matching the run's selected quarter | Some employees have a **guaranteed minimum SIP** (NACS = new-account/contract guarantee) regardless of performance. The metric's output label also renders as "Guarantee SIP (Q1)"/"(Q2)"/etc. based on the selected quarter, not hardcoded to Q2 |
 | `nacs_guarantee` | `guarantee_eligibility_fy26_months` | `nacs_region_currency` (SIP 56) | How many months of that guarantee apply this year |
 | `ytd_payments` | `sip_payroll_currency` | `q1_payment_payroll_currency` (SIP 51) | What's already been paid out in Q1 — needed to compute overpayment/true-up later |
 | `precompute_exceptions` (admin override file) | `months_eligible_override` | Overrides SIP 1 if HR manually corrects eligible months | Manual finance correction always wins over the computed value |
@@ -160,7 +160,7 @@ Each step shows: **what it computes → from what → why**.
 
 ### Stage H — Payroll-currency conversion, guarantees, and true-up
 37. **`ytd_sip_earned_payroll_currency`** (SIP 44) = `ytd_sip_earned × payroll_fx_rate`.
-38. **`guarantee_sip_q2`** = looked up from `nacs_guarantee.calculated_sip_usd` — a contractual minimum some employees have regardless of performance.
+38. **`guarantee_sip_q2`** = a `case_when` that picks `nacs_guarantee.calculated_sip_usd_q1`/`_q2`/`_q3`/`_q4` based on the run's selected quarter — a contractual minimum some employees have regardless of performance. The output label dynamically renders as "Guarantee SIP (Q1)"/"(Q2)"/"(Q3)"/"(Q4)" to match.
 39. **`overpayment`** (SIP 54) = compares `ytd_sip_earned` against what's already been paid (`q1/q2/q3_payment_region_currency`) plus any guarantee already paid out. *Why:* if prior quarterly payments already exceeded what's now earned YTD, this is the clawback/true-up amount.
 40. **`overpayment_payroll_currency`** (SIP 55) = `overpayment × payroll_fx_rate`.
 41. **`nacs_region_currency`** (SIP 56) → **`nacs_payroll_currency`** (SIP 58) → **`nacs_usd_cc`** (SIP 59) = guarantee-vs-earned reconciliation, converted across currencies for reporting.

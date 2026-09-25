@@ -112,6 +112,7 @@ class CalculationConfigLoader:
         metric_library_path: str | Path,
         role_mapping_path: str | Path,
         role_id: str,
+        quarter: str | None = None,
     ) -> ResolvedMetricPlan:
         library = cls.load_metric_library(
             metric_library_path
@@ -146,6 +147,7 @@ class CalculationConfigLoader:
                     name=metric.name,
                     section=metric.section,
                     definition=resolved_definition,
+                    quarter=quarter,
                 )
             )
 

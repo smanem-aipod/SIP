@@ -49,6 +49,7 @@ class MetricDefinition:
         name: str,
         section: str,
         definition: dict[str, Any],
+        quarter: str | None = None,
     ) -> "MetricDefinition":
         if not isinstance(definition, dict):
             raise ValueError(
@@ -78,6 +79,23 @@ class MetricDefinition:
                 "a string or list."
             )
 
+        output_name = str(
+            definition.get(
+                "output_name",
+                name,
+            )
+        )
+
+        # Lets a metric's display name/export header follow the run's
+        # actual selected quarter (e.g. "Guarantee SIP ({quarter})")
+        # instead of ever being hardcoded to a single quarter that goes
+        # stale. Only substituted when both a placeholder and a resolved
+        # quarter are present - otherwise the literal "{quarter}" text
+        # is left as-is rather than raising, since not every caller
+        # (e.g. the pre-role-binding pass) has a quarter to give.
+        if "{quarter}" in output_name and quarter:
+            output_name = output_name.format(quarter=quarter)
+
         return cls(
             name=str(name),
             section=str(section),
@@ -88,12 +106,7 @@ class MetricDefinition:
             publish=bool(
                 definition.get("publish", False)
             ),
-            output_name=str(
-                definition.get(
-                    "output_name",
-                    name,
-                )
-            ),
+            output_name=output_name,
             definition=dict(definition),
             explicit_dependencies=tuple(
                 str(dependency)

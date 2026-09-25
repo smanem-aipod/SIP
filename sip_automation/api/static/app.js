@@ -1315,13 +1315,19 @@
     return QUARTERS[(index + 1) % QUARTERS.length];
   }
 
+  function previousQuarter(quarter) {
+    const index = QUARTERS.indexOf(quarter);
+    if (index === -1) return null;
+    return QUARTERS[(index - 1 + QUARTERS.length) % QUARTERS.length];
+  }
+
   async function showQuarterSelectionSection() {
     hideAllMainSections();
     quarterSelectInput.value = selectedQuarter && QUARTERS.includes(selectedQuarter)
       ? selectedQuarter
       : "Q1";
     quarterSelectHint.textContent =
-      `Reconciliation will compare ${quarterSelectInput.value} (previous) vs ${nextQuarter(quarterSelectInput.value)} (current) HR rosters.`;
+      `Reconciliation will compare ${previousQuarter(quarterSelectInput.value)} (previous) vs ${quarterSelectInput.value} (current) HR rosters.`;
     quarterSelectionSection.hidden = false;
   }
 
@@ -1331,7 +1337,7 @@
     // Continue first) would show the previous quarter, not this one.
     setSelectedQuarter(quarterSelectInput.value);
     quarterSelectHint.textContent =
-      `Reconciliation will compare ${quarterSelectInput.value} (previous) vs ${nextQuarter(quarterSelectInput.value)} (current) HR rosters.`;
+      `Reconciliation will compare ${previousQuarter(quarterSelectInput.value)} (previous) vs ${quarterSelectInput.value} (current) HR rosters.`;
   });
 
   // Applies the chosen quarter everywhere it needs to take effect: HR
@@ -1394,11 +1400,11 @@
     hrReconciliationSection.hidden = false;
 
     // Labels reflect the quarter chosen on the landing page (previous =
-    // selected, current = the following quarter) - fall back to generic
-    // "Q1"/"Q2" wording if no quarter was ever selected (e.g. leftover
-    // sessionStorage from before this feature existed).
-    const previousLabel = selectedQuarter || "Q1";
-    const currentLabel = selectedQuarter ? nextQuarter(selectedQuarter) : "Q2";
+    // the quarter before the selected one, current = the selected quarter) -
+    // fall back to generic "Q1"/"Q2" wording if no quarter was ever selected
+    // (e.g. leftover sessionStorage from before this feature existed).
+    const previousLabel = selectedQuarter ? previousQuarter(selectedQuarter) : "Q1";
+    const currentLabel = selectedQuarter || "Q2";
     hrQ1Label.textContent = `${previousLabel} HR File (previous period)`;
     hrQ2Label.textContent = `${currentLabel} HR File (current period)`;
     hrThQ1Value.textContent = `${previousLabel} Value`;

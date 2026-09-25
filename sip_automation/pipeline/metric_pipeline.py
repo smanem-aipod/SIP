@@ -210,6 +210,9 @@ class MetricPipeline:
                 role_sip_output = SIPOutputFormatter.format(
                     role_result,
                     layout_path=self.sip_output_layout_path,
+                    quarter=(
+                        context.parameters.get("quarter") or "Q2"
+                    ),
                 )                
 
                 role_sip_path = self._save_csv(
@@ -486,6 +489,7 @@ class MetricPipeline:
         self,
         *,
         role_id: str,
+        quarter: str | None = None,
     ) -> ResolvedMetricPlan:
         return CalculationConfigLoader.build_plan(
             metric_library_path=(
@@ -495,6 +499,7 @@ class MetricPipeline:
                 self.role_mappings_path
             ),
             role_id=role_id,
+            quarter=quarter,
         )
 
     def _run_role_metrics(
@@ -523,6 +528,14 @@ class MetricPipeline:
 
         plan = self._build_role_plan(
             role_id=role_id,
+            # Same value used for the "quarter"/case_when branching and
+            # the calculation_quarter column below - reused here so any
+            # "{quarter}" placeholder in a metric's output_name (e.g.
+            # "Guarantee SIP ({quarter})") resolves to the run's actual
+            # selection rather than staying literal or defaulting wrong.
+            quarter=(
+                context.parameters.get("quarter") or "Q2"
+            ),
         )
 
         logger.info(

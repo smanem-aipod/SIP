@@ -75,6 +75,8 @@ class SIPOutputFormatter:
     def from_yaml(
         cls,
         layout_path: str | Path,
+        *,
+        quarter: str | None = None,
     ) -> OutputLayout:
         """
         Load and validate an output-layout YAML file.
@@ -171,6 +173,8 @@ class SIPOutputFormatter:
                     "non-empty string 'source'."
                 )
 
+            source = source.strip()
+
             if header is None:
                 header = source
 
@@ -180,10 +184,23 @@ class SIPOutputFormatter:
                     "non-empty string 'header'."
                 )
 
+            header = header.strip()
+
+            # Mirrors MetricDefinition's output_name templating - lets a
+            # column that dynamically renames itself per quarter (e.g.
+            # "Guarantee SIP ({quarter})") still be found and re-labeled
+            # correctly in the exported CSV.
+            if quarter:
+                if "{quarter}" in source:
+                    source = source.format(quarter=quarter)
+
+                if "{quarter}" in header:
+                    header = header.format(quarter=quarter)
+
             parsed_columns.append(
                 OutputColumn(
-                    source=source.strip(),
-                    header=header.strip(),
+                    source=source,
+                    header=header,
                 )
             )
 
@@ -199,6 +216,7 @@ class SIPOutputFormatter:
         dataframe: pd.DataFrame,
         *,
         layout_path: str | Path,
+        quarter: str | None = None,
     ) -> pd.DataFrame:
         """
         Apply the configured order and business-facing headers.
@@ -209,7 +227,7 @@ class SIPOutputFormatter:
                 "SIP output formatting requires a pandas DataFrame."
             )
 
-        layout = cls.from_yaml(layout_path)
+        layout = cls.from_yaml(layout_path, quarter=quarter)
 
         output_series: list[pd.Series] = []
         output_headers: list[str] = []

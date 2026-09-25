@@ -239,8 +239,8 @@ output:
     # SIP 46–59
     # =====================================================
 
-    - source: Guarantee SIP (Q2)
-      header: Guarantee SIP(Q2)
+    - source: Guarantee SIP ({quarter})
+      header: Guarantee SIP({quarter})
 
     - source: Overpayment
       header: Overpayment
