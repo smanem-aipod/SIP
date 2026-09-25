@@ -217,6 +217,14 @@ cleaning:
     - "None"
     - "-"
 
+  # "NA" is a legitimate region code (North America) here, not a
+  # missing-value marker. Only "NA" is exempted for "region" - blank
+  # cells, "N/A", "-", etc. still correctly become null for region,
+  # same as every other column.
+  null_marker_column_exceptions:
+    region:
+      - "NA"
+
   uppercase:
     - region
     - bu

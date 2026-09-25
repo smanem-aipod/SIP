@@ -233,6 +233,10 @@ class RawLoadPipeline:
                     "-",
                 ],
             ),
+            "null_marker_column_exceptions": cleaning_config.get(
+                "null_marker_column_exceptions",
+                {},
+            ),
         }
 
         result = DataPreprocessor.preprocess(

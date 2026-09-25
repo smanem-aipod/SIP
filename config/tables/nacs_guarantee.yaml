@@ -248,6 +248,14 @@ cleaning:
     - "None"
     - "-"
 
+  # "NA" is a legitimate region code (North America) here, not a
+  # missing-value marker - see config/tables/employee.yaml for the
+  # same fix and rationale. Only "NA" is exempted; other markers
+  # ("N/A", blank, etc.) still null out region normally.
+  null_marker_column_exceptions:
+    region:
+      - "NA"
+
   uppercase:
     - region
     - bu

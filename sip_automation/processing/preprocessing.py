@@ -89,6 +89,10 @@ class DataPreprocessor:
                 result = cls._normalize_null_markers(
                     result,
                     null_markers=null_markers,
+                    column_marker_exceptions=config.get(
+                        "null_marker_column_exceptions",
+                        {},
+                    ),
                 )
 
             result = cls._apply_case_rules(
@@ -178,6 +182,7 @@ class DataPreprocessor:
         dataframe: pd.DataFrame,
         *,
         null_markers: list[Any],
+        column_marker_exceptions: dict[str, list[Any]] | None = None,
     ) -> pd.DataFrame:
         result = dataframe.copy()
 
@@ -186,11 +191,19 @@ class DataPreprocessor:
             for marker in null_markers
         }
 
+        exceptions_by_column = column_marker_exceptions or {}
+
         for column in result.columns:
+            column_exceptions = {
+                cls._normalize_comparison_value(marker)
+                for marker in exceptions_by_column.get(column, [])
+            }
+            effective_markers = normalized_markers - column_exceptions
+
             result[column] = result[column].map(
                 lambda value: cls._null_if_marker(
                     value,
-                    normalized_markers,
+                    effective_markers,
                 )
             )
 
